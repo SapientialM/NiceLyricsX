@@ -71,3 +71,8 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+# Build artifacts
+# dist/ 装打包出来的 DMG、zip 这些 release artifacts(走 GitHub Releases,
+# 仓库里只留 source)。如果要在仓库里分发,改成 !dist/*.dmg 之类的反例外。
+dist/
