@@ -1,6 +1,8 @@
 # NiceLyricsX
 
 > 菜单栏常驻的 macOS 歌词应用,跟着 Apple Music 一起呼吸。
+>
+> **当前版本 v0.1.0 — 公开测试版**。功能基本跑通,可能还有未发现的问题。生产环境慎用,欢迎到 [Issues](../../issues) 反馈 bug,带 stderr 日志和复现步骤最好。
 
 NiceLyricsX 不是一个独立播放器 —— 它住在你的菜单栏,听 Apple Music 播什么,就把它当前一行、上一行、下一行同步高亮投到桌面上。无需切换播放源,无需登录,无需订阅,装上就能用。
 
@@ -22,11 +24,11 @@ NiceLyricsX 不是一个独立播放器 —— 它住在你的菜单栏,听 Appl
 
 - **macOS 16 (Tahoe) 及以上**
 - 通用二进制 (Apple Silicon)
-- 推荐从 [Releases 页面](../../releases/latest) 下载 `NiceLyricsX-1.0.0.dmg`
+- 推荐从 [Releases 页面](../../releases/latest) 下载 `NiceLyricsX-0.1.0.dmg`
 
 ### 1. 安装
 
-1. 双击挂载 `NiceLyricsX-1.0.0.dmg`
+1. 双击挂载 `NiceLyricsX-0.1.0.dmg`
 2. 把 **NiceLyricsX** 拖进 **Applications** 文件夹
 3. 在 **启动台** 或 **Applications** 里双击运行
 
