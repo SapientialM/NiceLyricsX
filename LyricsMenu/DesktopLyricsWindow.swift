@@ -81,6 +81,12 @@ final class DesktopLyricsWindowController: NSObject, NSWindowDelegate {
         panel.becomesKeyOnlyIfNeeded = true
         panel.delegate = self
 
+        // 必须先把 self.panel 赋值,再调 positionPanelByStoredFactor。
+        // 后面 setFrameOrigin 会触发 windowDidMove → saveCurrentPositionFactor,
+        // 这两条路径都依赖 self.panel!。如果顺序反了,会 Swift runtime
+        // trap: "found nil while implicitly unwrapping an Optional value"
+        self.panel = panel
+
         // 位置初始化
         positionPanelByStoredFactor()
 
@@ -92,8 +98,8 @@ final class DesktopLyricsWindowController: NSObject, NSWindowDelegate {
         host.frame = NSRect(origin: .zero, size: initialSize)
         panel.contentView = host
 
-        self.panel = panel
         self.hostingView = host
+        // self.panel 已经在 positionPanelByStoredFactor 之前赋值过了
 
         // 监听设置变化
         NotificationCenter.default.addObserver(
@@ -115,6 +121,9 @@ final class DesktopLyricsWindowController: NSObject, NSWindowDelegate {
 
     // MARK: - Position
 
+    /// 用存储的 [0,1] 比例因子把 panel 放到对应的屏幕坐标。
+    /// 前提:`self.panel` 已经被赋值(见 `setupPanel` 顶部)—— 否则
+    /// `self.panel!.frame` 会触发 Swift runtime trap。
     private func positionPanelByStoredFactor() {
         let x = AppSettings.desktopLyricsXFactor
         let y = AppSettings.desktopLyricsYFactor

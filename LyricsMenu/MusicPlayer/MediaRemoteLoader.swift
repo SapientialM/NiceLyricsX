@@ -32,36 +32,46 @@ public final class MediaRemoteLoader: @unchecked Sendable {
         return MediaRemoteLoader()
     }()
 
-    private let handle: UnsafeMutableRawPointer?
-    private let isAvailable: Bool
+    // 所有属性默认 nil / false — 当前 init 总是 return nil,实例永远不会
+    // 被构造,这些属性只是用来让"将来恢复 init"时类型不报错。
+    private let handle: UnsafeMutableRawPointer? = nil
+    private let isAvailable: Bool = false
 
-    // 函数指针
-    private let _MRMediaRemoteGetNowPlayingInfo: MRMediaRemoteGetNowPlayingInfo?
-    private let _MRMediaRemoteSetElapsedTime: MRMediaRemoteSetElapsedTime?
-    private let _MRMediaRemoteSendCommand: MRMediaRemoteSendCommand?
-    private let _MRMediaRemoteRegisterForNowPlayingNotifications: MRMediaRemoteRegisterForNowPlayingNotifications?
-    private let _MRMediaRemoteUnregisterForNowPlayingNotifications: MRMediaRemoteUnregisterForNowPlayingNotifications?
-    private let _MRNowPlayingClientGetBundleIdentifier: MRNowPlayingClientGetBundleIdentifier?
-    private let _MRNowPlayingClientGetDisplayName: MRNowPlayingClientGetDisplayName?
-    private let _MRNowPlayingClientGetParentAppBundleIdentifier: MRNowPlayingClientGetParentAppBundleIdentifier?
+    private let _MRMediaRemoteGetNowPlayingInfo: MRMediaRemoteGetNowPlayingInfo? = nil
+    private let _MRMediaRemoteSetElapsedTime: MRMediaRemoteSetElapsedTime? = nil
+    private let _MRMediaRemoteSendCommand: MRMediaRemoteSendCommand? = nil
+    private let _MRMediaRemoteRegisterForNowPlayingNotifications: MRMediaRemoteRegisterForNowPlayingNotifications? = nil
+    private let _MRMediaRemoteUnregisterForNowPlayingNotifications: MRMediaRemoteUnregisterForNowPlayingNotifications? = nil
+    private let _MRNowPlayingClientGetBundleIdentifier: MRNowPlayingClientGetBundleIdentifier? = nil
+    private let _MRNowPlayingClientGetDisplayName: MRNowPlayingClientGetDisplayName? = nil
+    private let _MRNowPlayingClientGetParentAppBundleIdentifier: MRNowPlayingClientGetParentAppBundleIdentifier? = nil
 
     private init?() {
-        let path = "/System/Library/PrivateFrameworks/MediaRemote.framework/MediaRemote"
-        guard let h = dlopen(path, RTLD_LAZY) else {
-            return nil
-        }
-        self.handle = h
-        self.isAvailable = true
-
-        self._MRMediaRemoteGetNowPlayingInfo = Self.load(h, "MRMediaRemoteGetNowPlayingInfo")
-        self._MRMediaRemoteSetElapsedTime = Self.load(h, "MRMediaRemoteSetElapsedTime")
-        self._MRMediaRemoteSendCommand = Self.load(h, "MRMediaRemoteSendCommand")
-        self._MRMediaRemoteRegisterForNowPlayingNotifications = Self.load(h, "MRMediaRemoteRegisterForNowPlayingNotifications")
-        self._MRMediaRemoteUnregisterForNowPlayingNotifications = Self.load(h, "MRMediaRemoteUnregisterForNowPlayingNotifications")
-        self._MRNowPlayingClientGetBundleIdentifier = Self.load(h, "MRNowPlayingClientGetBundleIdentifier")
-        self._MRNowPlayingClientGetDisplayName = Self.load(h, "MRNowPlayingClientGetDisplayName")
-        self._MRNowPlayingClientGetParentAppBundleIdentifier = Self.load(h, "MRNowPlayingClientGetParentAppBundleIdentifier")
+        // macOS 26 上 MediaRemote 私有 framework 已经从同步 API 改成了基于
+        // mediaremoted 服务的异步 XPC。dlopen/dlsym 能拿到符号,但调用
+        // 路径里只要走"先 registerForNowPlayingNotifications 再
+        // getNowPlayingInfo"这种顺序,MediaRemote 内部 callback 就会
+        // deref NULL(FAR=0x54)→ SIGSEGV。
+        //
+        // 退路:Apple Script(AppleMusicPlayer.queryViaAppleScript)。
+        // 它直接 spawn /usr/bin/osascript,跟 MediaRemote 完全解耦。
+        // 在 LSUIElement accessory app + 沙盒外的环境下,AppleScript 一样
+        // 能拿到 Apple Music / iTunes 的当前播放信息。
+        //
+        // 这里直接 return nil → MediaRemoteLoader.shared? = nil → 所有
+        // canUse 检查落到 false → AppleMusicPlayer 自动走 AppleScript。
+        // 类型 / 函数 / 调用代码全部保留,等 Apple 接口稳定后再放开。
+        return nil
     }
+
+    // 历史实现 —— 上面 init 禁用后整个类降到 no-op,留作将来恢复用。
+    // 恢复时把这一段从注释拿出来、删掉属性默认值,改成:
+    //   let path = "..."
+    //   guard let h = dlopen(...) else { return nil }
+    //   self.handle = h
+    //   self.isAvailable = true
+    //   self._MRMediaRemoteGetNowPlayingInfo = Self.load(...)
+    //   ...
 
     deinit {
         if let h = handle { dlclose(h) }

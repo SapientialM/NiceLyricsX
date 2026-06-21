@@ -4,15 +4,21 @@
 //
 //  MediaRemote 调用的回归测试 —
 //
-//  锁住的不变式:在 macOS 26 上,MediaRemoteLoader.getNowPlayingDictionary()
-//  不得崩、必须返回 nil 或 [String: Any] 之一。
+//  历史:
+//    macOS 14–15 上 typealias 是 `() -> CFDictionaryRef`,
+//    macOS 26 上实现改成了 `(int32_t, void*, void*) -> CFDictionaryRef`(
+//    公开头文件撒谎,disasm 才能看到)。如果用 0 参调,x0/x1/x2 是垃圾值,
+//    ForClient deref 到 null page (0x3) → EXC_BAD_ACCESS。
 //
-//  背景:macOS 26 把 `MRMediaRemoteGetNowPlayingInfo` 的实现从
-//  `() -> CFDictionaryRef` 改成了 `(int32_t, void*, void*) -> CFDictionaryRef`
-//  (公开头文件还是写的 0 参,谎言)。如果有人把 typealias 改回 0 参,
-//  x0/x1/x2 是垃圾值,函数内部 deref 到 null page (地址 0x3) → EXC_BAD_ACCESS。
+//  当前状态:
+//    macOS 26 上 register + getNowPlayingInfo 这条路径会让 MediaRemote 内部
+//    异步 callback deref NULL(FAR=0x54)→ SIGSEGV。所以 `MediaRemoteLoader.init`
+//    强制 return nil,所有 canUse 走 false,AppleMusicPlayer 退到 AppleScript
+//    fallback。MediaRemote 的代码 / 类型 / 调用点全部保留,等 Apple 接口稳定
+//    之后再放开。
 //
-//  本测试是"必须不崩"的硬约束:任何会让这个调用崩的回归都会被 CI 抓住。
+//  本测试锁住不变式:MediaRemoteLoader.shared 永远是 nil(防止有人把
+//  init 恢复成非 nil 重新引入 callback SIGSEGV)。
 //
 
 import XCTest
@@ -20,37 +26,12 @@ import XCTest
 
 final class MediaRemoteLoaderTests: XCTestCase {
 
-    /// 主回归:在 macOS 26 上 getNowPlayingDictionary 不得崩。
-    /// Apple Music 没在播时返回 nil;在播时返回合法 dict。
-    func testGetNowPlayingDictionaryDoesNotCrash() throws {
-        guard let loader = MediaRemoteLoader.shared else {
-            throw XCTSkip("MediaRemote.framework not available")
-        }
-        XCTAssertTrue(loader.canUse, "MediaRemote should be available on macOS 26+")
-
-        let dict = loader.getNowPlayingDictionary()
-        if let dict {
-            XCTAssertTrue(dict is [String: Any],
-                          "getNowPlayingDictionary should return [String: Any] when non-nil")
-        }
-        // 走到这里说明没崩
-    }
-
-    /// 多次调用幂等不崩 — 防止"首次调用没事,第二次有状态污染才崩"这种隐藏回归。
-    func testGetNowPlayingDictionaryIsIdempotent() throws {
-        guard let loader = MediaRemoteLoader.shared else {
-            throw XCTSkip("MediaRemote.framework not available")
-        }
-        for _ in 0..<5 {
-            _ = loader.getNowPlayingDictionary()
-        }
-    }
-
-    /// artworkToken 是 getNowPlayingDictionary 的封装,也得跟着不掉链子。
-    func testArtworkTokenDoesNotCrash() throws {
-        guard let loader = MediaRemoteLoader.shared else {
-            throw XCTSkip("MediaRemote.framework not available")
-        }
-        _ = loader.artworkToken()
+    func testSharedIsAlwaysNil() {
+        // 这是防止"有人把 init 恢复成 dlopen + dlsym、重新踩 callback 那个
+        // 坑"的硬锁。当前 macOS 26 上任何 register+getNowPlayingInfo 组合
+        // 都会让 MediaRemote 内部 callback deref NULL。
+        XCTAssertNil(MediaRemoteLoader.shared,
+                     "MediaRemoteLoader.shared should be nil — MediaRemote is disabled, " +
+                     "AppleMusicPlayer must fall through to AppleScript")
     }
 }
