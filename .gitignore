@@ -30,6 +30,17 @@ playground.xcworkspace
 # .swiftpm
 
 .build/
+.swiftpm/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+
+# IDEs
+.idea/
+.vscode/
 
 # CocoaPods
 #
