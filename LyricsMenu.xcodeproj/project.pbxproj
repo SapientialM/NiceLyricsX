@@ -18,6 +18,7 @@
 		A100000900000000000000A1 /* LyricsParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000900000000000000A1 /* LyricsParser.swift */; };
 		A100000A00000000000000A1 /* LRCLIBClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000A00000000000000A1 /* LRCLIBClient.swift */; };
 		A100000B00000000000000A1 /* LyricsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000B00000000000000A1 /* LyricsProvider.swift */; };
+		A100001100000000000000A1 /* NetEaseClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001100000000000000A1 /* NetEaseClient.swift */; };
 		A100000C00000000000000A1 /* LyricsEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000C00000000000000A1 /* LyricsEngine.swift */; };
 		A100000D00000000000000A1 /* UserDefaults+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000D00000000000000A1 /* UserDefaults+Extension.swift */; };
 		A100000E00000000000000A1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B100000E00000000000000A1 /* Assets.xcassets */; };
@@ -36,6 +37,7 @@
 		B100000900000000000000A1 /* LyricsParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsParser.swift; sourceTree = "<group>"; };
 		B100000A00000000000000A1 /* LRCLIBClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LRCLIBClient.swift; sourceTree = "<group>"; };
 		B100000B00000000000000A1 /* LyricsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsProvider.swift; sourceTree = "<group>"; };
+		B100001100000000000000A1 /* NetEaseClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetEaseClient.swift; sourceTree = "<group>"; };
 		B100000C00000000000000A1 /* LyricsEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsEngine.swift; sourceTree = "<group>"; };
 		B100000D00000000000000A1 /* UserDefaults+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UserDefaults+Extension.swift"; sourceTree = "<group>"; };
 		B100000E00000000000000A1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -102,6 +104,7 @@
 				B100000900000000000000A1 /* LyricsParser.swift */,
 				B100000A00000000000000A1 /* LRCLIBClient.swift */,
 				B100000B00000000000000A1 /* LyricsProvider.swift */,
+				B100001100000000000000A1 /* NetEaseClient.swift */,
 				B100000C00000000000000A1 /* LyricsEngine.swift */,
 			);
 			path = LyricsService;
@@ -205,6 +208,7 @@
 				A100000900000000000000A1 /* LyricsParser.swift in Sources */,
 				A100000A00000000000000A1 /* LRCLIBClient.swift in Sources */,
 				A100000B00000000000000A1 /* LyricsProvider.swift in Sources */,
+				A100001100000000000000A1 /* NetEaseClient.swift in Sources */,
 				A100000C00000000000000A1 /* LyricsEngine.swift in Sources */,
 				A100000D00000000000000A1 /* UserDefaults+Extension.swift in Sources */,
 			);
