@@ -119,8 +119,16 @@ final class DesktopLyricsWindowController: NSObject, NSWindowDelegate {
         let x = AppSettings.desktopLyricsXFactor
         let y = AppSettings.desktopLyricsYFactor
         let size = panel.frame.size
-        let point = NSScreen.pointFromFactor(xFactor: x, yFactor: y, size: size)
-        panel.setFrameOrigin(point)
+        let resolved = NSScreen.pointFromFactor(xFactor: x, yFactor: y, size: size)
+        // AppKit 启动早期 NSScreen.screens 可能为空(LSUIElement accessory app
+        // 的 applicationDidFinishLaunching 触发期),此时退化到 origin = 0,0,
+        // 让 NSWindow 自己后续在 NSApplicationDidFinishLaunchingNotification
+        // 之后再由 windowDidMove 矫正。
+        guard resolved.target != nil else {
+            panel.setFrameOrigin(.zero)
+            return
+        }
+        panel.setFrameOrigin(resolved.point)
     }
 
     private func saveCurrentPositionFactor() {

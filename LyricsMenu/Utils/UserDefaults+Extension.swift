@@ -137,14 +137,26 @@ extension NSScreen {
     }
 
     /// 把比例因子 + 窗口尺寸还原到屏幕坐标,支持主屏/外接屏。
+    ///
+    /// 启动早期(`applicationDidFinishLaunching` 里建 `DesktopLyricsWindowController` 那条路径)
+    /// `NSScreen.screens` 可能是空的,这时 `first!` 会在 main thread 上 EXC_BAD_ACCESS。
+    /// 用 `target` 兜底:`screen` 入参 → `NSScreen.main` → `NSScreen.screens.first` → nil。
+    /// 调用方负责看 `target == nil` 时怎么退化(返回 `.zero` 或延后定位)。
     public static func pointFromFactor(
         xFactor: Double, yFactor: Double,
         size: NSSize, screen: NSScreen? = nil
-    ) -> NSPoint {
-        let target = screen ?? NSScreen.main ?? NSScreen.screens.first!
-        let x = target.frame.minX + target.frame.width * CGFloat(xFactor) - size.width / 2
-        let y = target.frame.minY + target.frame.height * CGFloat(yFactor) - size.height / 2
-        return NSPoint(x: x, y: y)
+    ) -> (point: NSPoint, target: NSScreen?) {
+        // factor 也要先 clamp,避免用户之前把窗口拖到一块已经不存在的屏幕
+        // (旧的 [0,1] 之外的值)再还原时飞出 main screen 之外。
+        let xF = xFactor.clamped(to: 0...1)
+        let yF = yFactor.clamped(to: 0...1)
+        let target = screen ?? NSScreen.main ?? NSScreen.screens.first
+        guard let target else {
+            return (NSPoint(x: 0, y: 0), nil)
+        }
+        let x = target.frame.minX + target.frame.width * CGFloat(xF) - size.width / 2
+        let y = target.frame.minY + target.frame.height * CGFloat(yF) - size.height / 2
+        return (NSPoint(x: x, y: y), target)
     }
 }
 
