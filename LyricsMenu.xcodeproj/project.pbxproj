@@ -1,0 +1,416 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A100000100000000000000A1 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000100000000000000A1 /* App.swift */; };
+		A100000200000000000000A1 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000A1 /* MenuBarView.swift */; };
+		A100000300000000000000A1 /* DesktopLyricsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000300000000000000A1 /* DesktopLyricsWindow.swift */; };
+		A100000400000000000000A1 /* PlaybackInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000400000000000000A1 /* PlaybackInfo.swift */; };
+		A100000500000000000000A1 /* MusicPlayerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000500000000000000A1 /* MusicPlayerProtocol.swift */; };
+		A100000600000000000000A1 /* AppleMusicPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000600000000000000A1 /* AppleMusicPlayer.swift */; };
+		A100000700000000000000A1 /* MediaRemoteLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000700000000000000A1 /* MediaRemoteLoader.swift */; };
+		A100000800000000000000A1 /* LyricsLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000800000000000000A1 /* LyricsLine.swift */; };
+		A100000900000000000000A1 /* LyricsParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000900000000000000A1 /* LyricsParser.swift */; };
+		A100000A00000000000000A1 /* LRCLIBClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000A00000000000000A1 /* LRCLIBClient.swift */; };
+		A100000B00000000000000A1 /* LyricsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000B00000000000000A1 /* LyricsProvider.swift */; };
+		A100000C00000000000000A1 /* LyricsEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000C00000000000000A1 /* LyricsEngine.swift */; };
+		A100000D00000000000000A1 /* UserDefaults+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000D00000000000000A1 /* UserDefaults+Extension.swift */; };
+		A100000E00000000000000A1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B100000E00000000000000A1 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		B000000000000000000000A1 /* NiceLyricsX.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NiceLyricsX.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B100000100000000000000A1 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
+		B100000200000000000000A1 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
+		B100000300000000000000A1 /* DesktopLyricsWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopLyricsWindow.swift; sourceTree = "<group>"; };
+		B100000400000000000000A1 /* PlaybackInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackInfo.swift; sourceTree = "<group>"; };
+		B100000500000000000000A1 /* MusicPlayerProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicPlayerProtocol.swift; sourceTree = "<group>"; };
+		B100000600000000000000A1 /* AppleMusicPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleMusicPlayer.swift; sourceTree = "<group>"; };
+		B100000700000000000000A1 /* MediaRemoteLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaRemoteLoader.swift; sourceTree = "<group>"; };
+		B100000800000000000000A1 /* LyricsLine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsLine.swift; sourceTree = "<group>"; };
+		B100000900000000000000A1 /* LyricsParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsParser.swift; sourceTree = "<group>"; };
+		B100000A00000000000000A1 /* LRCLIBClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LRCLIBClient.swift; sourceTree = "<group>"; };
+		B100000B00000000000000A1 /* LyricsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsProvider.swift; sourceTree = "<group>"; };
+		B100000C00000000000000A1 /* LyricsEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsEngine.swift; sourceTree = "<group>"; };
+		B100000D00000000000000A1 /* UserDefaults+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UserDefaults+Extension.swift"; sourceTree = "<group>"; };
+		B100000E00000000000000A1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B100000F00000000000000A1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B10000100000000000000A1 /* NiceLyricsX.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NiceLyricsX.entitlements; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C000000000000000000000A1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		D000000100000000000000A1 = {
+			isa = PBXGroup;
+			children = (
+				D000000200000000000000A1 /* LyricsMenu */,
+				D000000300000000000000A1 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D000000200000000000000A1 /* LyricsMenu */ = {
+			isa = PBXGroup;
+			children = (
+				B100000100000000000000A1 /* App.swift */,
+				B100000200000000000000A1 /* MenuBarView.swift */,
+				B100000300000000000000A1 /* DesktopLyricsWindow.swift */,
+				D000000400000000000000A1 /* MusicPlayer */,
+				D000000500000000000000A1 /* LyricsService */,
+				D000000600000000000000A1 /* Utils */,
+				D000000700000000000000A1 /* Resources */,
+			);
+			path = LyricsMenu;
+			sourceTree = "<group>";
+		};
+		D000000300000000000000A1 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B000000000000000000000A1 /* NiceLyricsX.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		D000000400000000000000A1 /* MusicPlayer */ = {
+			isa = PBXGroup;
+			children = (
+				B100000400000000000000A1 /* PlaybackInfo.swift */,
+				B100000500000000000000A1 /* MusicPlayerProtocol.swift */,
+				B100000600000000000000A1 /* AppleMusicPlayer.swift */,
+				B100000700000000000000A1 /* MediaRemoteLoader.swift */,
+			);
+			path = MusicPlayer;
+			sourceTree = "<group>";
+		};
+		D000000500000000000000A1 /* LyricsService */ = {
+			isa = PBXGroup;
+			children = (
+				B100000800000000000000A1 /* LyricsLine.swift */,
+				B100000900000000000000A1 /* LyricsParser.swift */,
+				B100000A00000000000000A1 /* LRCLIBClient.swift */,
+				B100000B00000000000000A1 /* LyricsProvider.swift */,
+				B100000C00000000000000A1 /* LyricsEngine.swift */,
+			);
+			path = LyricsService;
+			sourceTree = "<group>";
+		};
+		D000000600000000000000A1 /* Utils */ = {
+			isa = PBXGroup;
+			children = (
+				B100000D00000000000000A1 /* UserDefaults+Extension.swift */,
+			);
+			path = Utils;
+			sourceTree = "<group>";
+		};
+		D000000700000000000000A1 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				B100000E00000000000000A1 /* Assets.xcassets */,
+				B100000F00000000000000A1 /* Info.plist */,
+				B10000100000000000000A1 /* NiceLyricsX.entitlements */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		E000000100000000000000A1 /* NiceLyricsX */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F000000100000000000000A1 /* Build configuration list for PBXNativeTarget "NiceLyricsX" */;
+			buildPhases = (
+				G000000100000000000000A1 /* Sources */,
+				C000000000000000000000A1 /* Frameworks */,
+				H000000100000000000000A1 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = NiceLyricsX;
+			productName = NiceLyricsX;
+			productReference = B000000000000000000000A1 /* NiceLyricsX.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		I000000100000000000000A1 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					E000000100000000000000A1 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = J000000100000000000000A1 /* Build configuration list for PBXProject "NiceLyricsX" */;
+			compatibilityVersion = "Xcode 16.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = D000000100000000000000A1;
+			productRefGroup = D000000300000000000000A1 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				E000000100000000000000A1 /* NiceLyricsX */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		H000000100000000000000A1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A100000E00000000000000A1 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		G000000100000000000000A1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A100000100000000000000A1 /* App.swift in Sources */,
+				A100000200000000000000A1 /* MenuBarView.swift in Sources */,
+				A100000300000000000000A1 /* DesktopLyricsWindow.swift in Sources */,
+				A100000400000000000000A1 /* PlaybackInfo.swift in Sources */,
+				A100000500000000000000A1 /* MusicPlayerProtocol.swift in Sources */,
+				A100000600000000000000A1 /* AppleMusicPlayer.swift in Sources */,
+				A100000700000000000000A1 /* MediaRemoteLoader.swift in Sources */,
+				A100000800000000000000A1 /* LyricsLine.swift in Sources */,
+				A100000900000000000000A1 /* LyricsParser.swift in Sources */,
+				A100000A00000000000000A1 /* LRCLIBClient.swift in Sources */,
+				A100000B00000000000000A1 /* LyricsProvider.swift in Sources */,
+				A100000C00000000000000A1 /* LyricsEngine.swift in Sources */,
+				A100000D00000000000000A1 /* UserDefaults+Extension.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		K000000100000000000000A1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		K000000200000000000000A1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		L000000100000000000000A1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = LyricsMenu/Resources/NiceLyricsX.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LyricsMenu/Resources/Info.plist;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.local.NiceLyricsX";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		L000000200000000000000A1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = LyricsMenu/Resources/NiceLyricsX.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LyricsMenu/Resources/Info.plist;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.local.NiceLyricsX";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		F000000100000000000000A1 /* Build configuration list for PBXNativeTarget "NiceLyricsX" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				L000000100000000000000A1 /* Debug */,
+				L000000200000000000000A1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		J000000100000000000000A1 /* Build configuration list for PBXProject "NiceLyricsX" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				K000000100000000000000A1 /* Debug */,
+				K000000200000000000000A1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = I000000100000000000000A1 /* Project object */;
+}
