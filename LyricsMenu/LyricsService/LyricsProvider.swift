@@ -19,21 +19,24 @@ import OSLog
 public actor LyricsProvider {
 
     private let client: LRCLIBClient
+    private let netEaseClient: NetEaseClient
     private let cache: LyricsCache
     private let logger = Logger(subsystem: "com.local.NiceLyricsX", category: "LyricsProvider")
 
     public init(
         client: LRCLIBClient = LRCLIBClient(),
+        netEaseClient: NetEaseClient = NetEaseClient(),
         cache: LyricsCache = .shared
     ) {
         self.client = client
+        self.netEaseClient = netEaseClient
         self.cache = cache
     }
 
     // MARK: - 公开 API
 
     /// 给定播放信息,加载歌词。
-    /// 优先本地缓存,失败则 LRCLIB 在线搜索。
+    /// 优先本地缓存,失败则 LRCLIB 在线搜索,再失败则 NetEase 网易云 fallback。
     public func loadLyrics(for info: PlaybackInfo) async throws -> Lyrics {
         guard !info.title.isEmpty, !info.artist.isEmpty else {
             throw LyricsError.noResult
@@ -52,21 +55,42 @@ public actor LyricsProvider {
             return cached
         }
 
-        // 2. LRCLIB 搜索
-        logger.debug("歌词在线搜索: title=\(info.title, privacy: .public) artist=\(info.artist, privacy: .public)")
-        let lyrics = try await client.searchLyrics(
+        // 2. LRCLIB 搜索(英文 / 海外流行华语覆盖最好)
+        do {
+            logger.debug("歌词在线搜索 LRCLIB: title=\(info.title, privacy: .public) artist=\(info.artist, privacy: .public)")
+            let lyrics = try await client.searchLyrics(
+                title: info.title,
+                artist: info.artist,
+                duration: info.duration > 0 ? info.duration : nil,
+                trackKey: trackKey
+            )
+            cacheSave(lyrics: lyrics, trackKey: trackKey)
+            return lyrics
+        } catch let lErr as LyricsError {
+            if case .noResult = lErr {
+                // LRCLIB 没结果,继续走 NetEase
+                FileHandle.standardError.write(Data("[LyricsProvider] LRCLIB miss, falling through to NetEase\n".utf8))
+            } else {
+                // 其他错误(网络/解析)直接抛,不再 fallback
+                throw lErr
+            }
+        }
+
+        // 3. NetEase 网易云 fallback(中文 / 抖音 / 网络新歌)
+        let lyrics = try await netEaseClient.searchLyrics(
             title: info.title,
             artist: info.artist,
             duration: info.duration > 0 ? info.duration : nil,
             trackKey: trackKey
         )
+        cacheSave(lyrics: lyrics, trackKey: trackKey)
+        return lyrics
+    }
 
-        // 3. 写缓存(后台)
+    private func cacheSave(lyrics: Lyrics, trackKey: String) {
         Task.detached(priority: .background) { [cache] in
             await cache.save(lyrics: lyrics, trackKey: trackKey)
         }
-
-        return lyrics
     }
 
     /// 预取(不强求成功,只用于后台刷新)。

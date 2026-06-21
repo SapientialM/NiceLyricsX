@@ -18,6 +18,7 @@
 //
 
 import Foundation
+import OSLog
 
 public enum LyricsError: Error, LocalizedError {
     case network(underlying: Error)
@@ -41,6 +42,7 @@ public struct LRCLIBClient: Sendable {
 
     public let baseURL: URL
     public let session: URLSession
+    private let logger = Logger(subsystem: "com.local.NiceLyricsX", category: "LRCLIB")
 
     public init(
         baseURL: URL = URL(string: "https://lrclib.net")!,
@@ -61,11 +63,13 @@ public struct LRCLIBClient: Sendable {
         duration: TimeInterval? = nil,
         trackKey: String? = nil
     ) async throws -> Lyrics {
+        FileHandle.standardError.write(Data("[LRCLIB] search title=\(title) artist=\(artist) dur=\(duration ?? -1)\n".utf8))
         // 1. 关键词搜索
         let results = try await fetchSearchResults(
             title: title,
             artist: artist
         )
+        FileHandle.standardError.write(Data("[LRCLIB] got \(results.count) records\n".utf8))
 
         // 2. 在结果里挑最匹配的
         let best = pickBestMatch(
@@ -74,6 +78,11 @@ public struct LRCLIBClient: Sendable {
             targetArtist: artist,
             targetDuration: duration
         )
+        if let best {
+            FileHandle.standardError.write(Data("[LRCLIB] best: \(best.trackName) - \(best.artistName) dur=\(best.duration)\n".utf8))
+        } else {
+            FileHandle.standardError.write(Data("[LRCLIB] NO match\n".utf8))
+        }
 
         if let best {
             return try parseLyricsRecord(best, trackKey: trackKey)
@@ -200,9 +209,26 @@ public struct LRCLIBClient: Sendable {
     }
 
     private func parseLyricsRecord(_ record: LRCLIBRecord, trackKey: String?) throws -> Lyrics {
-        let text = record.plainLyrics ?? record.syncedLyrics ?? ""
-        guard !text.isEmpty else { throw LyricsError.noResult }
-        return LyricsParser.parse(lrcText: text, trackKey: trackKey)
+        // 优先 syncedLyrics(带 LRC 时间戳,desktop 歌词需要逐行时间对齐)。
+        // plainLyrics 是无标签的纯文本,parser 会得到 0 行 —— 实测 track
+        // "乱世" by 鬼卞 就有 plainLyrics 但 parser 解析出来 loaded(0),
+        // 用户看到的就是空白。
+        // 同步优先,同步没结果再退到 plain。
+        if let synced = record.syncedLyrics, !synced.isEmpty {
+            let parsed = LyricsParser.parse(lrcText: synced, trackKey: trackKey, source: "LRCLIB")
+            if !parsed.isEmpty { return parsed }
+        }
+        if let plain = record.plainLyrics, !plain.isEmpty {
+            // plain 没有 LRC 时间戳,把它当作单行塞进 Lyrics,起码能在桌面
+            // 显示文本(用户能确认"歌词到了",只是不能同步高亮)
+            return Lyrics(
+                lines: [LyricsLine(index: 0, position: 0, content: plain)],
+                timeDelay: 0,
+                source: "LRCLIB (unsynced)",
+                trackKey: trackKey
+            )
+        }
+        throw LyricsError.noResult
     }
 }
 

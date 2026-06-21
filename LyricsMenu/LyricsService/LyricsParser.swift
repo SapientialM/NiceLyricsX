@@ -37,7 +37,8 @@ public struct LyricsParser {
     public static func parse(
         lrcText text: String,
         trackKey: String? = nil,
-        defaultTimeDelay: TimeInterval = 0
+        defaultTimeDelay: TimeInterval = 0,
+        source: String = "LRCLIB"
     ) -> Lyrics {
         // 用 \r?\n 拆行,兼容 Windows / Mac
         let rawLines = text.replacingOccurrences(of: "\r\n", with: "\n")
@@ -102,7 +103,7 @@ public struct LyricsParser {
         return Lyrics(
             lines: collected,
             timeDelay: effectiveDelay,
-            source: "LRCLIB",
+            source: source,
             trackKey: trackKey
         )
     }

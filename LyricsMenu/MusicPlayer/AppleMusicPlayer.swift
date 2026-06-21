@@ -21,14 +21,12 @@
 
 import Foundation
 import AppKit
-import os
-#if canImport(OSLog)
 import OSLog
-#endif
 
 public final class AppleMusicPlayer: MusicPlayerProtocol, @unchecked Sendable {
 
     public let sourceName: String = "Apple Music"
+    private let logger = Logger(subsystem: "com.local.NiceLyricsX", category: "AppleMusicPlayer")
 
     // 通知 name(参考 LXPlayerAppleMusic.m)
     private static let mediaRemoteNotification = "com.apple.MediaRemote.nowPlayingInfo"
@@ -231,11 +229,15 @@ public final class AppleMusicPlayer: MusicPlayerProtocol, @unchecked Sendable {
         """
 
         guard let output = runAppleScript(script: script), !output.isEmpty else {
+            FileHandle.standardError.write(Data("[AppleMusicPlayer] AppleScript empty\n".utf8))
             return nil
         }
 
         let parts = output.components(separatedBy: "||")
-        guard parts.count >= 6 else { return nil }
+        guard parts.count >= 6 else {
+            FileHandle.standardError.write(Data("[AppleMusicPlayer] malformed: \(output)\n".utf8))
+            return nil
+        }
 
         let title = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
         let artist = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
@@ -243,6 +245,8 @@ public final class AppleMusicPlayer: MusicPlayerProtocol, @unchecked Sendable {
         let duration = TimeInterval(parts[3]) ?? 0
         let position = TimeInterval(parts[4]) ?? 0
         let stateStr = parts[5].trimmingCharacters(in: .whitespacesAndNewlines)
+
+        FileHandle.standardError.write(Data("[AppleMusicPlayer] AS: title=\(title) artist=\(artist) dur=\(duration) state=\(stateStr)\n".utf8))
 
         let state: PlaybackState
         if stateStr == "playing" {
@@ -278,10 +282,16 @@ public final class AppleMusicPlayer: MusicPlayerProtocol, @unchecked Sendable {
             try process.run()
             process.waitUntilExit()
         } catch {
+            logger.error("osascript launch failed: \(error.localizedDescription, privacy: .public)")
             return nil
         }
 
-        guard process.terminationStatus == 0 else { return nil }
+        if process.terminationStatus != 0 {
+            let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
+            let errStr = String(data: errData, encoding: .utf8) ?? ""
+            FileHandle.standardError.write(Data("[AppleMusicPlayer] osascript exit=\(process.terminationStatus) stderr=\(errStr)\n".utf8))
+            return nil
+        }
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         return String(data: data, encoding: .utf8)?
             .trimmingCharacters(in: .whitespacesAndNewlines)

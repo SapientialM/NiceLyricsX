@@ -169,12 +169,14 @@ public final class LyricsEngine: ObservableObject {
         )
         currentLyrics = merged
         status = .loaded(lineCount: merged.lines.count)
+        FileHandle.standardError.write(Data("[LyricsEngine] loaded \(merged.lines.count) lines, source=\(merged.source)\n".utf8))
         recomputeCurrentLine(playbackTime: lastPlaybackTime)
     }
 
     private func acceptLoadFailure(_ error: Error) {
         currentLyrics = nil
         currentLineIndex = nil
+        FileHandle.standardError.write(Data("[LyricsEngine] load failed: \(error)\n".utf8))
         if let lErr = error as? LyricsError, case .noResult = lErr {
             status = .notFound
         } else {
