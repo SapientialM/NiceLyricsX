@@ -81,16 +81,26 @@ public final class MediaRemoteLoader: @unchecked Sendable {
     /// 直接拿原始 dictionary(供 artwork 等扩展字段使用)。
     /// 返回 `nil` 表示 MediaRemote 不可用或当前无播放器。
     ///
-    /// 真实签名(LyricsX `MRPrivateLoader.m` 用的就是这种):
+    /// **macOS 26 上的真实签名**(公开头文件里写的是 `(void)`,但 26 改成了 3 参数):
     /// ```c
-    /// CFDictionaryRef MRMediaRemoteGetNowPlayingInfo(void);
+    /// CFDictionaryRef MRMediaRemoteGetNowPlayingInfo(int32_t a, void *b, void *c);
     /// ```
-    /// 同步调用,直接返回字典(可能是 NULL,表示当前没有播放器在播)。
+    /// disasm 显示函数体只有 12 字节:
+    /// ```
+    /// mov x2, x1
+    /// mov x1, x0
+    /// mov x0, #0
+    /// b  MRMediaRemoteGetNowPlayingInfoForOrigin   ; tail call
+    /// ```
+    /// 也就是说它会拿调用方的 x0/x1 当作 b/c,用 0 当作 a,然后转给 ForOrigin。
+    /// 如果按公开头文件的 0 参声明去调,x0/x1/x2 是垃圾值,ForClient 内 deref 时就
+    /// 会在 0x3 那种 null page 上 EXC_BAD_ACCESS。
+    /// 实测 `(0, NULL, NULL)` 在 O0 / O2 下都干净返回 NULL。
     public func getNowPlayingDictionary() -> [String: Any]? {
         guard let fn = _MRMediaRemoteGetNowPlayingInfo else { return nil }
         // MediaRemote 在调用方的引用计数约定:
         // 返回的字典是 +1 retain,这里用 takeRetainedValue 平衡。
-        let unmanaged = unsafe fn()
+        let unmanaged = unsafe fn(0, nil, nil)
         guard let unmanaged else { return nil }
         // CFDictionaryRef (CoreFoundation) 与 NSDictionary 是 toll-free bridged,
         // 这里先取到 CFDictionary,再转成 NSDictionary。
@@ -177,10 +187,13 @@ public final class MediaRemoteLoader: @unchecked Sendable {
 
 // MARK: - C Function Pointer Types
 
-/// `CFDictionaryRef MRMediaRemoteGetNowPlayingInfo(void)`
-/// 同步返回当前播放信息字典(可能是 NULL,表示当前没有播放器在播)。
+/// **macOS 26 上是 3 参数,不是公开头文件写的 `(void)`**。
+/// disasm 是 `mov x2,x1; mov x1,x0; mov x0,#0; b ForOrigin`,所以
+/// 调用方必须显式传 (0, nil, nil),否则 x0/x1/x2 是垃圾值,函数内部
+/// deref 到 null page 就 EXC_BAD_ACCESS。
+/// 公开头文件的 `(void)` 签名是个谎言 —— 26 改了实现但没改 header。
 /// 参考 LyricsX `MRPrivateLoader.m` 的实际调用方式。
-private typealias MRMediaRemoteGetNowPlayingInfo = @convention(c) () -> Unmanaged<CFDictionary>?
+private typealias MRMediaRemoteGetNowPlayingInfo = @convention(c) (Int32, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Unmanaged<CFDictionary>?
 
 /// `Boolean MRMediaRemoteSetElapsedTime(NSTimeInterval elapsedTime)`
 /// macOS 14+ 公开 API 的近似签名;失败时返回 false。
