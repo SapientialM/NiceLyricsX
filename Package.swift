@@ -29,6 +29,11 @@ let package = Package(
             swiftSettings: [
                 .swiftLanguageMode(.v6)
             ]
+        ),
+        .testTarget(
+            name: "NiceLyricsXTests",
+            dependencies: ["NiceLyricsX"],
+            path: "Tests/NiceLyricsXTests"
         )
     ]
 )
