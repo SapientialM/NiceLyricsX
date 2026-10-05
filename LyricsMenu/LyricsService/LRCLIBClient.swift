@@ -30,7 +30,11 @@ public enum LyricsError: Error, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .network(let e): return "网络错误: \(e.localizedDescription)"
-        case .http(let s): return "服务器返回 \(s)"
+        case .http(let s):
+            // 503 / 502 这些是"服务端临时挂了",不是用户的错,文案要能区分开
+            if s == 429 { return "歌词服务限流(429),稍后自动重试" }
+            if (500...599).contains(s) { return "歌词服务暂时不可用(\(s))" }
+            return "服务器返回 \(s)"
         case .noResult: return "未找到歌词"
         case .decoding(let e): return "解析失败: \(e.localizedDescription)"
         case .invalidResponse: return "服务器响应无效"
@@ -120,8 +124,8 @@ public struct LRCLIBClient: Sendable {
         req.timeoutInterval = 15
 
         do {
-            let (data, response) = try await session.data(for: req)
-            guard let http = response as? HTTPURLResponse else { throw LyricsError.invalidResponse }
+            // 429 / 5xx 会自动退避重试(见 HTTPRetry.swift)
+            let (data, http) = try await session.retryingData(for: req)
             guard (200..<300).contains(http.statusCode) else {
                 throw LyricsError.http(status: http.statusCode)
             }
@@ -154,8 +158,7 @@ public struct LRCLIBClient: Sendable {
         req.timeoutInterval = 15
 
         do {
-            let (data, response) = try await session.data(for: req)
-            guard let http = response as? HTTPURLResponse else { throw LyricsError.invalidResponse }
+            let (data, http) = try await session.retryingData(for: req)
             if http.statusCode == 404 {
                 return nil  // signed get 找不到不算异常
             }

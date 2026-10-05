@@ -129,8 +129,8 @@ public struct NetEaseClient: Sendable {
         req.timeoutInterval = 15
 
         do {
-            let (data, response) = try await session.data(for: req)
-            guard let http = response as? HTTPURLResponse else { throw LyricsError.invalidResponse }
+            // 429 / 5xx 会自动退避重试(见 HTTPRetry.swift)
+            let (data, http) = try await session.retryingData(for: req)
             guard (200..<300).contains(http.statusCode) else {
                 FileHandle.standardError.write(Data("[NetEase] search HTTP \(http.statusCode)\n".utf8))
                 throw LyricsError.http(status: http.statusCode)
@@ -164,8 +164,7 @@ public struct NetEaseClient: Sendable {
         req.timeoutInterval = 15
 
         do {
-            let (data, response) = try await session.data(for: req)
-            guard let http = response as? HTTPURLResponse else { throw LyricsError.invalidResponse }
+            let (data, http) = try await session.retryingData(for: req)
             guard (200..<300).contains(http.statusCode) else {
                 throw LyricsError.http(status: http.statusCode)
             }

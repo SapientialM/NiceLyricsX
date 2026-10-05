@@ -6,6 +6,13 @@
 设置项全部沿用原有 UserDefaults key。
 
 ### 修掉的真 bug
+- **歌词源返回 503 就直接失败**:LRCLIB / 网易云偶发 503、502、429 时,旧实现
+  直接把「服务器返回 503」丢到面板上,只能靠用户手动点重搜。现在所有出网请求
+  都带指数退避重试(最多 3 次,尊重 `Retry-After`,带抖动),超时 / 连接中断 /
+  DNS 失败同样会重试;404 这类重试没意义的错误不会浪费用户时间。
+- **LRCLIB 挂了就等于没歌词**:以前只有「LRCLIB 没收录」才会 fallback 到网易云,
+  服务端故障会直接中止。现在 LRCLIB 不可用也会改走网易云,两边都不行时才把
+  主源的错误抛出来(比「未找到歌词」更能说明问题)。
 - **主线程被 AppleScript 冻住**:`refresh()` 每 2 秒(以及每次播放器通知)
   都在主线程上跑 `osascript` 并 `waitUntilExit()`,UI 会周期性卡顿。
   现在脚本跑在专用串行队列上,并做了「同一时刻只查一次」的合并。
@@ -41,10 +48,13 @@
 ### 工程
 - 新增 `AppSettingsStore` 作为设置的唯一真源,取代散落的
   NotificationCenter 广播 + 只写不读的静态 getter。
-- 新增 `ArtworkService`、`LaunchAtLogin`、`AutomationPermission`。
+- 新增 `ArtworkService`、`LaunchAtLogin`、`AutomationPermission`、`HTTPRetry`。
 - 新增 `AppleScriptCompileTests`:直接把生产用的 AppleScript 交给
   `osascript -e` 编译 —— 这次就是这么抓到「动态 tell 目标导致 -2741」的。
-- 单元测试 41 → 80 个,`swift test` 全绿。
+- 新增 `HTTPRetryTests`:用 `URLProtocol` 打桩验证 503 → 重试 → 成功 /
+  重试用尽 / 404 不重试 / 超时重试。
+- 新增 `scripts/make-dmg.sh`,一条命令出 `dist/NiceLyricsX-<version>.dmg`。
+- 单元测试 41 → 97 个,`swift test` 全绿。
 
 ### 仍然没做
 - 逐字卡拉 OK(需要 Apple Music 逐字时间戳,没有读取通道)

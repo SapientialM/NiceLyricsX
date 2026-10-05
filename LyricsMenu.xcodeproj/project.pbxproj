@@ -26,6 +26,7 @@
 		A100001300000000000000A1 /* LaunchAtLogin.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001300000000000000A1 /* LaunchAtLogin.swift */; };
 		A100001400000000000000A1 /* AutomationPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001400000000000000A1 /* AutomationPermission.swift */; };
 		A100001500000000000000A1 /* ArtworkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001500000000000000A1 /* ArtworkService.swift */; };
+		A100001600000000000000A1 /* HTTPRetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001600000000000000A1 /* HTTPRetry.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -51,6 +52,7 @@
 		B100001300000000000000A1 /* LaunchAtLogin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLogin.swift; sourceTree = "<group>"; };
 		B100001400000000000000A1 /* AutomationPermission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomationPermission.swift; sourceTree = "<group>"; };
 		B100001500000000000000A1 /* ArtworkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkService.swift; sourceTree = "<group>"; };
+		B100001600000000000000A1 /* HTTPRetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPRetry.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -114,6 +116,7 @@
 				B100000B00000000000000A1 /* LyricsProvider.swift */,
 				B100001100000000000000A1 /* NetEaseClient.swift */,
 				B100001500000000000000A1 /* ArtworkService.swift */,
+				B100001600000000000000A1 /* HTTPRetry.swift */,
 				B100000C00000000000000A1 /* LyricsEngine.swift */,
 			);
 			path = LyricsService;
@@ -222,6 +225,7 @@
 				A100000B00000000000000A1 /* LyricsProvider.swift in Sources */,
 				A100001100000000000000A1 /* NetEaseClient.swift in Sources */,
 				A100001500000000000000A1 /* ArtworkService.swift in Sources */,
+				A100001600000000000000A1 /* HTTPRetry.swift in Sources */,
 				A100000C00000000000000A1 /* LyricsEngine.swift in Sources */,
 				A100000D00000000000000A1 /* UserDefaults+Extension.swift in Sources */,
 				A100001200000000000000A1 /* AppSettingsStore.swift in Sources */,

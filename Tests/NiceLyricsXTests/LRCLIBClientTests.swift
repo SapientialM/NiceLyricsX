@@ -57,8 +57,11 @@ final class LRCLIBClientTests: XCTestCase {
 
     func testLyricsErrorDescription() {
         XCTAssertEqual(LyricsError.noResult.errorDescription, "未找到歌词")
-        XCTAssertEqual(LyricsError.http(status: 503).errorDescription, "服务器返回 503")
         XCTAssertEqual(LyricsError.invalidResponse.errorDescription, "服务器响应无效")
+        // 5xx 是"服务端临时挂了",文案要和「服务端明确拒绝」区分开
+        XCTAssertEqual(LyricsError.http(status: 503).errorDescription, "歌词服务暂时不可用(503)")
+        XCTAssertEqual(LyricsError.http(status: 429).errorDescription, "歌词服务限流(429),稍后自动重试")
+        XCTAssertEqual(LyricsError.http(status: 400).errorDescription, "服务器返回 400")
     }
 
     func testClientDefaults() {

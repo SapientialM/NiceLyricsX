@@ -23,7 +23,7 @@ NiceLyricsX 不是一个独立播放器 —— 它住在你的菜单栏,听 Appl
 ## 下载
 
 - **macOS 26 (Tahoe) 及以上**
-- 通用二进制 (Apple Silicon)
+- 通用二进制(Apple Silicon + Intel 双架构)
 - 推荐从 [Releases 页面](../../releases/latest) 下载 `NiceLyricsX-0.2.0.dmg`
 
 ### 1. 安装
@@ -31,6 +31,14 @@ NiceLyricsX 不是一个独立播放器 —— 它住在你的菜单栏,听 Appl
 1. 双击挂载 `NiceLyricsX-0.2.0.dmg`
 2. 把 **NiceLyricsX** 拖进 **Applications** 文件夹
 3. 在 **启动台** 或 **Applications** 里双击运行
+
+> ⚠️ **第一次打开被 Gatekeeper 拦住?**("无法打开,因为 Apple 无法检查其是否包含恶意软件")
+> 当前版本是 **ad-hoc 签名、未做公证**(没有 Apple Developer ID),所以下载后会被拦。
+> 两个办法:
+> - **右键点 App → 打开 → 在弹窗里再点「打开」**(只需要做一次)
+> - 或者终端里 `xattr -dr com.apple.quarantine /Applications/NiceLyricsX.app`
+>
+> 自己从源码编译出来的包不会有这个问题(没有 quarantine 属性)。
 
 ### 2. 首次启动 — 给自动化权限
 
@@ -88,6 +96,7 @@ NiceLyricsX 不是一个独立播放器 —— 它住在你的菜单栏,听 Appl
 - **多屏 / 高分屏适配**:窗口位置按 `[0, 1]` 比例存,4K / 5K / 外接显示器切换不会把歌词扔到屏外;拖丢了可以一键重置
 - **登录时启动**:走 macOS 官方的 `SMAppService` 登录项,不需要额外 helper
 - **低开销**:切行用「按需唤醒」而不是每帧轮询,AppleScript 读取在后台队列,不卡主线程
+- **抗抖动**:歌词源返回 503 / 502 / 429 或超时时自动退避重试(最多 3 次,尊重 `Retry-After`);LRCLIB 整体不可用会自动改走网易云,而不是直接报错
 - **本地优先**:Apple Music 的播放信息完全走 AppleScript 在本机读,歌词走 HTTPS 拉 LRCLIB / 网易云,**没有第三方账号、没有后端、没有 telemetry**
 
 ---
@@ -108,6 +117,19 @@ NiceLyricsX 不是一个独立播放器 —— 它住在你的菜单栏,听 Appl
 - LRCLIB 主要是英文 + 海外中文流行,网易云 fallback 在大多数情况下能补上
 - 个别翻唱 / DJ 版 / 抖音新歌可能两边都没有,等几天通常会被社区补录
 - 检查网络:macOS 第一次跑新装的应用会弹「是否允许联网」,没点过的话去 **系统设置 → 网络 → 防火墙** 看一眼
+</details>
+
+<details>
+<summary><b>面板显示「歌词服务暂时不可用(503)」?</b></summary>
+
+歌词源(LRCLIB / 网易云)是社区 / 第三方服务,偶发 503、502、429 是正常的。
+NiceLyricsX 已经内置了容错:
+
+1. **自动退避重试**:503 / 502 / 429 / 超时 / 连接中断会重试最多 3 次(0.6s → 1.2s → 2.4s 左右,带随机抖动),服务端给了 `Retry-After` 也会尊重(上限 6 秒)
+2. **自动换源**:LRCLIB 整体不可用时会直接改走网易云,不再直接报错
+3. 两边都不行才会把错误显示出来 —— 这时点一下 **重新搜索歌词** 试一次即可
+
+404 这类「重试也没用」的错误不会重试,免得让你白等。
 </details>
 
 <details>
@@ -193,6 +215,17 @@ xcodebuild -project LyricsMenu.xcodeproj -scheme NiceLyricsX \
            -configuration Release -derivedDataPath build build
 # 产物:build/Build/Products/Release/NiceLyricsX.app
 ```
+
+### 打包 DMG
+
+```bash
+bash scripts/make-dmg.sh
+# 产物:dist/NiceLyricsX-<version>.dmg(版本号读 Info.plist)
+# 想改成 Debug 构建:CONFIGURATION=Debug bash scripts/make-dmg.sh
+```
+
+脚本会做:Release 构建 → 组装 staging(含 `Applications` 软链)→ `hdiutil`
+压成 UDZO → `hdiutil verify` + 挂载校验 → 卸载。`dist/` 已在 `.gitignore` 里。
 
 ### 跑测试
 
