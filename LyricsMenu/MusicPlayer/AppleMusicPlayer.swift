@@ -40,6 +40,17 @@ public final class AppleMusicPlayer: MusicPlayerProtocol, @unchecked Sendable {
     private var observerTokens: [NSObjectProtocol] = []
     private var pollingTask: Task<Void, Never>?
 
+    /// AppleScript 是同步阻塞的(`Process.waitUntilExit()`),绝不能跑在主线程 ——
+    /// 否则每次轮询 / 每次通知进来都会卡住 UI。所有脚本调用扔到这条串行队列上。
+    private let scriptQueue = DispatchQueue(
+        label: "com.local.NiceLyricsX.appleMusic.script",
+        qos: .utility
+    )
+
+    /// 同一时刻只允许一次脚本查询在飞。轮询 2s 一次,osascript 偶尔更慢,
+    /// 不做合并会排队堆积。
+    private let refreshInFlight = OSAllocatedUnfairLock<Bool>(initialState: false)
+
     private struct State {
         var lastYield: PlaybackInfo = .empty
         var subscribers: [UUID: AsyncStream<PlaybackInfo>.Continuation] = [:]
@@ -62,7 +73,18 @@ public final class AppleMusicPlayer: MusicPlayerProtocol, @unchecked Sendable {
 
     public var currentInfo: PlaybackInfo {
         get async {
-            return queryNowPlaying()
+            // 路径 1:MediaRemote(非阻塞,当前 macOS 26 上是禁用状态)
+            if let mr = MediaRemoteLoader.shared, mr.canUse {
+                let info = mr.getNowPlayingInfo()
+                if !info.title.isEmpty || !info.artist.isEmpty {
+                    return enrichWithArtwork(info)
+                }
+            }
+
+            // 路径 2:AppleScript —— 阻塞调用,放到专用队列
+            let info = await runOnScriptQueue { self.queryViaAppleScriptBlocking() }
+            guard let info, !info.title.isEmpty else { return .empty }
+            return enrichWithArtwork(info)
         }
     }
 
@@ -82,7 +104,7 @@ public final class AppleMusicPlayer: MusicPlayerProtocol, @unchecked Sendable {
             // 立即 yield 当前
             Task { [weak self] in
                 guard let self else { return }
-                let info = self.queryNowPlaying()
+                let info = await self.currentInfo
                 self.broadcast(info)
             }
         }
@@ -148,9 +170,34 @@ public final class AppleMusicPlayer: MusicPlayerProtocol, @unchecked Sendable {
 
     // MARK: - Refresh
 
+    /// 触发一次查询。非阻塞:立刻返回,查询结果异步广播。
+    ///
+    /// 早先的实现直接在调用线程上跑 `osascript && waitUntilExit()`,而这个
+    /// 方法是从 MainActor 的轮询 Task / 通知回调里调的 —— 等于每 2 秒把主线程
+    /// 冻住几十到几百毫秒。现在脚本走 `scriptQueue`,主线程只做广播。
     private func refresh() {
-        let info = queryNowPlaying()
-        broadcast(info)
+        let shouldStart = refreshInFlight.withLock { inFlight -> Bool in
+            if inFlight { return false }
+            inFlight = true
+            return true
+        }
+        guard shouldStart else { return }
+
+        Task { [weak self] in
+            guard let self else { return }
+            let info = await self.currentInfo
+            self.refreshInFlight.withLock { $0 = false }
+            self.broadcast(info)
+        }
+    }
+
+    /// 把阻塞的脚本调用挪到专用串行队列上执行。
+    private func runOnScriptQueue<T: Sendable>(_ work: @escaping @Sendable () -> T) async -> T {
+        await withCheckedContinuation { continuation in
+            scriptQueue.async {
+                continuation.resume(returning: work())
+            }
+        }
     }
 
     private func broadcast(_ info: PlaybackInfo) {
@@ -181,55 +228,43 @@ public final class AppleMusicPlayer: MusicPlayerProtocol, @unchecked Sendable {
 
     // MARK: - Query
 
-    /// 查询当前播放信息。
-    /// 优先 MediaRemote,失败回退 Apple Script。
-    private func queryNowPlaying() -> PlaybackInfo {
-        // 路径 1:MediaRemote
-        if let mr = MediaRemoteLoader.shared, mr.canUse {
-            let info = mr.getNowPlayingInfo()
-            // MediaRemote 即使没播放器也可能返回 "kMRMediaRemoteNowPlayingInfoIsMusicApp = 0",
-            // 这里兜底:title+artist 都为空 → 视为 stopped
-            if !info.title.isEmpty || !info.artist.isEmpty {
-                return enrichWithArtwork(info)
-            }
-        }
+    /// 读取当前播放信息的 AppleScript。
+    ///
+    /// 两点注意:
+    /// 1. 先判断 Music 在不在跑,不在跑就直接返回 —— 否则 `tell application
+    ///    "Music"` 会把没开的 Music 拉起来。
+    /// 2. 不能写成 `tell application runningApp`(用一个字符串变量当目标):
+    ///    AppleScript 是在编译期按目标 App 的 sdef 解析 `player state`
+    ///    这类术语的,动态目标拿不到术语表 → 语法错误 (-2741)。
+    ///    要动态目标必须配 `using terms from application "Music"`,没必要。
+    ///    macOS 10.15 起 iTunes 已经并入 Music,这里只认 Music。
+    ///
+    /// 有单测直接拿它去跑 `osascript -e`,确保它至少能被编译。
+    static let nowPlayingScript = """
+    tell application "System Events"
+        set musicRunning to exists (processes whose bundle identifier is "com.apple.Music")
+    end tell
+    if musicRunning is false then return ""
 
-        // 路径 2:Apple Script
-        if let info = queryViaAppleScript(), !info.title.isEmpty {
-            return enrichWithArtwork(info)
-        }
-
-        return .empty
-    }
-
-    /// 从 Apple Script 拿当前曲目。
-    private func queryViaAppleScript() -> PlaybackInfo? {
-        let script = """
-        tell application "System Events"
-            set isRunning to (exists (processes whose name is "Music"))
-            if not isRunning then
-                set isRunning to (exists (processes whose name is "iTunes"))
-            end if
-        end tell
-
-        if isRunning then
-            tell application "Music"
-                if player state is not stopped then
-                    set tName to name of current track
-                    set tArtist to artist of current track
-                    set tAlbum to album of current track
-                    set tDuration to duration of current track
-                    set tPos to player position
-                    set pState to player state
-                    return tName & "||" & tArtist & "||" & tAlbum & "||" & (tDuration as string) & "||" & tPos & "||" & (pState as string)
-                end if
-            end tell
+    tell application "Music"
+        if player state is not stopped then
+            set tName to name of current track
+            set tArtist to artist of current track
+            set tAlbum to album of current track
+            set tDuration to duration of current track
+            set tPos to player position
+            set pState to player state
+            return tName & "||" & tArtist & "||" & tAlbum & "||" & (tDuration as string) & "||" & (tPos as string) & "||" & (pState as string)
         end if
-        return ""
-        """
+    end tell
+    return ""
+    """
+
+    /// 从 Apple Script 拿当前曲目。**阻塞调用**,只在 `scriptQueue` 上执行。
+    private func queryViaAppleScriptBlocking() -> PlaybackInfo? {
+        let script = Self.nowPlayingScript
 
         guard let output = runAppleScript(script: script), !output.isEmpty else {
-            FileHandle.standardError.write(Data("[AppleMusicPlayer] AppleScript empty\n".utf8))
             return nil
         }
 
@@ -242,18 +277,17 @@ public final class AppleMusicPlayer: MusicPlayerProtocol, @unchecked Sendable {
         let title = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
         let artist = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
         let album = parts[2].trimmingCharacters(in: .whitespacesAndNewlines)
-        let duration = TimeInterval(parts[3]) ?? 0
-        let position = TimeInterval(parts[4]) ?? 0
+        let duration = Self.parseAppleScriptNumber(parts[3])
+        let position = Self.parseAppleScriptNumber(parts[4])
         let stateStr = parts[5].trimmingCharacters(in: .whitespacesAndNewlines)
 
-        FileHandle.standardError.write(Data("[AppleMusicPlayer] AS: title=\(title) artist=\(artist) dur=\(duration) state=\(stateStr)\n".utf8))
-
         let state: PlaybackState
-        if stateStr == "playing" {
+        switch stateStr {
+        case "playing":
             state = .playing(start: Date(timeIntervalSinceNow: -position))
-        } else if stateStr == "paused" {
+        case "paused":
             state = .paused(time: position)
-        } else {
+        default:
             state = .stopped
         }
 
@@ -265,6 +299,17 @@ public final class AppleMusicPlayer: MusicPlayerProtocol, @unchecked Sendable {
             state: state,
             source: "Apple Music"
         )
+    }
+
+    /// AppleScript 把 real 转成字符串时用的是**系统 locale 的小数点** ——
+    /// 中文 / 欧洲 locale 下会得到 `"256,111"`,直接 `TimeInterval(_:)` 会失败
+    /// 变成 0(时长 0 → 歌词匹配选错版本,进度 0 → 起播时间戳全错)。
+    /// 这里兼容逗号小数点。
+    static func parseAppleScriptNumber(_ raw: String) -> TimeInterval {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let value = TimeInterval(trimmed) { return value }
+        let normalized = trimmed.replacingOccurrences(of: ",", with: ".")
+        return TimeInterval(normalized) ?? 0
     }
 
     /// 包装 `osascript` 执行。

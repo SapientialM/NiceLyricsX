@@ -36,6 +36,9 @@ public enum AppDefaultsKey: String {
 
     /// 是否启用鼠标穿透(歌词窗口不接收事件)。
     case desktopLyricsClickThrough = "desktopLyrics.clickThrough"
+
+    /// 桌面歌词是否在正文下方显示翻译行。
+    case desktopLyricsShowTranslation = "desktopLyrics.showTranslation"
 }
 
 extension UserDefaults {
@@ -95,7 +98,8 @@ public enum AppSettings {
     }
 
     public static var menubarLyricsEnabled: Bool {
-        get { UserDefaults.standard.bool(for: .menubarLyricsEnabled, default: true) }
+        // 默认关:菜单栏常驻歌词文本是「可选增强」,不该在升级后擅自占用菜单栏
+        get { UserDefaults.standard.bool(for: .menubarLyricsEnabled, default: false) }
         set { UserDefaults.standard.set(newValue, for: .menubarLyricsEnabled) }
     }
 
@@ -110,14 +114,37 @@ public enum AppSettings {
     }
 
     public static var desktopLyricsFontSize: Double {
-        get { UserDefaults.standard.double(for: .desktopLyricsFontSize, default: 28) }
-        set { UserDefaults.standard.set(newValue, for: .desktopLyricsFontSize) }
+        get {
+            UserDefaults.standard
+                .double(for: .desktopLyricsFontSize, default: 28)
+                .clamped(to: desktopLyricsFontSizeRange)
+        }
+        set {
+            UserDefaults.standard.set(newValue.clamped(to: desktopLyricsFontSizeRange), for: .desktopLyricsFontSize)
+        }
     }
 
     public static var desktopLyricsOpacity: Double {
-        get { UserDefaults.standard.double(for: .desktopLyricsOpacity, default: 0.85) }
-        set { UserDefaults.standard.set(newValue, for: .desktopLyricsOpacity) }
+        get {
+            UserDefaults.standard
+                .double(for: .desktopLyricsOpacity, default: 0.85)
+                .clamped(to: desktopLyricsOpacityRange)
+        }
+        set {
+            UserDefaults.standard.set(newValue.clamped(to: desktopLyricsOpacityRange), for: .desktopLyricsOpacity)
+        }
     }
+
+    public static var showTranslation: Bool {
+        get { UserDefaults.standard.bool(for: .desktopLyricsShowTranslation, default: true) }
+        set { UserDefaults.standard.set(newValue, for: .desktopLyricsShowTranslation) }
+    }
+
+    /// 桌面歌词字号可选范围(pt)。
+    public static let desktopLyricsFontSizeRange: ClosedRange<Double> = 16...56
+
+    /// 桌面歌词背景不透明度可选范围。
+    public static let desktopLyricsOpacityRange: ClosedRange<Double> = 0.15...1.0
 }
 
 // MARK: - 屏幕坐标 → 位置因子

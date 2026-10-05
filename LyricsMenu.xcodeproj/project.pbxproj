@@ -22,6 +22,10 @@
 		A100000C00000000000000A1 /* LyricsEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000C00000000000000A1 /* LyricsEngine.swift */; };
 		A100000D00000000000000A1 /* UserDefaults+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000D00000000000000A1 /* UserDefaults+Extension.swift */; };
 		A100000E00000000000000A1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B100000E00000000000000A1 /* Assets.xcassets */; };
+		A100001200000000000000A1 /* AppSettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001200000000000000A1 /* AppSettingsStore.swift */; };
+		A100001300000000000000A1 /* LaunchAtLogin.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001300000000000000A1 /* LaunchAtLogin.swift */; };
+		A100001400000000000000A1 /* AutomationPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001400000000000000A1 /* AutomationPermission.swift */; };
+		A100001500000000000000A1 /* ArtworkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001500000000000000A1 /* ArtworkService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -43,6 +47,10 @@
 		B100000E00000000000000A1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B100000F00000000000000A1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B10000100000000000000A1 /* NiceLyricsX.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NiceLyricsX.entitlements; sourceTree = "<group>"; };
+		B100001200000000000000A1 /* AppSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsStore.swift; sourceTree = "<group>"; };
+		B100001300000000000000A1 /* LaunchAtLogin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLogin.swift; sourceTree = "<group>"; };
+		B100001400000000000000A1 /* AutomationPermission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomationPermission.swift; sourceTree = "<group>"; };
+		B100001500000000000000A1 /* ArtworkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -105,6 +113,7 @@
 				B100000A00000000000000A1 /* LRCLIBClient.swift */,
 				B100000B00000000000000A1 /* LyricsProvider.swift */,
 				B100001100000000000000A1 /* NetEaseClient.swift */,
+				B100001500000000000000A1 /* ArtworkService.swift */,
 				B100000C00000000000000A1 /* LyricsEngine.swift */,
 			);
 			path = LyricsService;
@@ -114,6 +123,9 @@
 			isa = PBXGroup;
 			children = (
 				B100000D00000000000000A1 /* UserDefaults+Extension.swift */,
+				B100001200000000000000A1 /* AppSettingsStore.swift */,
+				B100001300000000000000A1 /* LaunchAtLogin.swift */,
+				B100001400000000000000A1 /* AutomationPermission.swift */,
 			);
 			path = Utils;
 			sourceTree = "<group>";
@@ -209,8 +221,12 @@
 				A100000A00000000000000A1 /* LRCLIBClient.swift in Sources */,
 				A100000B00000000000000A1 /* LyricsProvider.swift in Sources */,
 				A100001100000000000000A1 /* NetEaseClient.swift in Sources */,
+				A100001500000000000000A1 /* ArtworkService.swift in Sources */,
 				A100000C00000000000000A1 /* LyricsEngine.swift in Sources */,
 				A100000D00000000000000A1 /* UserDefaults+Extension.swift in Sources */,
+				A100001200000000000000A1 /* AppSettingsStore.swift in Sources */,
+				A100001300000000000000A1 /* LaunchAtLogin.swift in Sources */,
+				A100001400000000000000A1 /* AutomationPermission.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

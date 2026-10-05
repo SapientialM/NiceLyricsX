@@ -37,7 +37,10 @@ public actor LyricsProvider {
 
     /// 给定播放信息,加载歌词。
     /// 优先本地缓存,失败则 LRCLIB 在线搜索,再失败则 NetEase 网易云 fallback。
-    public func loadLyrics(for info: PlaybackInfo) async throws -> Lyrics {
+    ///
+    /// - Parameter forceRefresh: `true` 时跳过本地缓存,强制走在线搜索
+    ///   (用户点「重新搜索歌词」时用)。
+    public func loadLyrics(for info: PlaybackInfo, forceRefresh: Bool = false) async throws -> Lyrics {
         guard !info.title.isEmpty, !info.artist.isEmpty else {
             throw LyricsError.noResult
         }
@@ -49,7 +52,8 @@ public actor LyricsProvider {
         )
 
         // 1. 本地缓存
-        if let cached = await cache.load(trackKey: trackKey),
+        if !forceRefresh,
+           let cached = await cache.load(trackKey: trackKey),
            !cached.lines.isEmpty {
             logger.debug("歌词命中缓存: \(trackKey, privacy: .public)")
             return cached
@@ -100,6 +104,11 @@ public actor LyricsProvider {
         } catch {
             logger.debug("预取失败: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    /// 清空本地歌词缓存(供菜单栏「清除缓存」调用)。
+    public func clearCache() async {
+        await cache.clear()
     }
 }
 

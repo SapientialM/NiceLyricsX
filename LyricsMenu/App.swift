@@ -9,6 +9,7 @@
 //  - 用 NSApplicationDelegateAdaptor 注入 AppDelegate
 //  - LSUIElement 在 Info.plist 里设 true → 无 Dock 图标
 //  - 启动后由 AppDelegate 启动 LyricsEngine + DesktopLyricsWindow
+//  - 设置统一由 AppSettingsStore 持有,并分发给菜单栏 / 桌面歌词窗口
 //
 
 import SwiftUI
@@ -29,8 +30,10 @@ struct NiceLyricsXApp: App {
 
 // MARK: - AppDelegate
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
+    private let settings = AppSettingsStore.shared
     private var statusItemController: MenuBarController!
     private var lyricsEngine: LyricsEngine!
     private var desktopWindowController: DesktopLyricsWindowController!
@@ -45,48 +48,64 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 3. 构造歌词引擎
         lyricsEngine = LyricsEngine(player: player)
-        lyricsEngine.timeDelay = AppSettings.timeDelay
         lyricsEngine.onTimeDelayChange = { newValue in
             AppSettings.timeDelay = newValue
         }
+        lyricsEngine.timeDelay = AppSettings.timeDelay
 
         // 4. 启动引擎
         lyricsEngine.start()
 
-        // 5. 菜单栏
-        statusItemController = MenuBarController(lyricsEngine: lyricsEngine)
+        // 5. 桌面歌词窗口(先建,菜单栏的「重置位置」要引用它)
+        desktopWindowController = DesktopLyricsWindowController(
+            lyricsEngine: lyricsEngine,
+            settings: settings
+        )
 
-        // 6. 桌面歌词窗口
-        desktopWindowController = DesktopLyricsWindowController(lyricsEngine: lyricsEngine)
-        if AppSettings.desktopLyricsAutoOpen {
-            desktopWindowController.show()
+        // 6. 菜单栏
+        statusItemController = MenuBarController(
+            lyricsEngine: lyricsEngine,
+            settings: settings
+        ) { [weak self] in
+            self?.desktopWindowController?.resetPosition()
         }
 
-        // 7. 检测权限
-        requestAutomationPermissionIfNeeded()
+        // 7. 恢复桌面歌词窗口的启动状态。
+        //    `desktopLyricsEnabled` 是「窗口当前是否显示」的真源,启动时由
+        //    「启动时自动打开」决定 —— 否则第一次打开面板会看到开关是 ON、
+        //    窗口却不在(用户点一下关、再点一下开才能看到窗口)。
+        if settings.desktopLyricsAutoOpen {
+            settings.desktopLyricsEnabled = true
+            desktopWindowController.show()
+        } else {
+            settings.desktopLyricsEnabled = false
+        }
+
+        // 8. 检测 / 请求自动化权限(后台执行,不阻塞启动)
+        requestAutomationPermission()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         lyricsEngine?.stop()
         statusItemController?.cleanup()
+        desktopWindowController?.teardown()
         desktopWindowController?.close()
     }
 
-    /// 检查 AppleScript / Automation 权限。
-    /// macOS 13+ 需要 TCC 授权才能用 osascript 读 Apple Music。
-    private func requestAutomationPermissionIfNeeded() {
-        // 用一行无害脚本触发系统授权弹窗
-        let script = "tell application \"System Events\" to count processes"
-        let task = Process()
-        task.launchPath = "/usr/bin/osascript"
-        task.arguments = ["-e", script]
-        task.standardOutput = Pipe()
-        task.standardError = Pipe()
-        do {
-            try task.run()
-            task.waitUntilExit()
-        } catch {
-            // ignore
+    /// 检查 Apple Music 的自动化权限。
+    ///
+    /// 早先的实现是跑一段 `tell application "System Events" to count processes`
+    /// 去"蹭"一个弹窗 —— 那个弹的是 System Events 的权限,不是 Music 的;
+    /// 而且 `waitUntilExit()` 直接在启动路径上阻塞主线程。
+    ///
+    /// 现在改用 `AEDeterminePermissionToAutomateTarget`:没问过就弹 Music 的授权框,
+    /// 已经决定过就直接拿到结果,且整个过程在后台队列。
+    private func requestAutomationPermission() {
+        Task {
+            let status = await AutomationPermission.requestOffMain()
+            FileHandle.standardError.write(
+                Data("[NiceLyricsX] automation permission: \(status.displayText)\n".utf8)
+            )
         }
     }
 }

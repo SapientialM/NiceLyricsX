@@ -11,7 +11,8 @@
 //  - 拖动:自己处理 `mouseDown` / `mouseDragged`(参考 LyricsX 的 SnapKit 实现)
 //  - 位置用 `[0,1]` 比例因子持久化(多屏切换不破相)
 //  - 鼠标穿透:`ignoresMouseEvents` 直接生效(无内部交互需要)
-//  - 内容用 SwiftUI `Canvas` 渲染,支持卡拉 OK 风格高亮
+//  - 设置变化全部走 `AppSettingsStore` 的 Combine 订阅,不再用 NotificationCenter
+//    (旧实现里字号 / 不透明度改了窗口既不重绘也不改尺寸)
 //
 
 import SwiftUI
@@ -24,27 +25,31 @@ import Combine
 final class DesktopLyricsWindowController: NSObject, NSWindowDelegate {
 
     private let lyricsEngine: LyricsEngine
+    private let settings: AppSettingsStore
+
     private var panel: NSPanel!
     private var hostingView: NSHostingView<DesktopLyricsView>!
     private var cancellables: Set<AnyCancellable> = []
     private var dragStartLocation: NSPoint?
+    private var localEventMonitor: Any?
 
-    init(lyricsEngine: LyricsEngine) {
+    init(lyricsEngine: LyricsEngine, settings: AppSettingsStore) {
         self.lyricsEngine = lyricsEngine
+        self.settings = settings
         super.init()
         setupPanel()
         observeSettings()
     }
 
     deinit {
-        // deinit 在 actor 外,只做最少清理
-        // 实际关闭在 stop() / close() 里
+        // deinit 在 actor 外,只做最少清理;窗口/监视器的正常拆除走 teardown()
     }
 
     // MARK: - Public
 
     func show() {
-        if !AppSettings.desktopLyricsEnabled { return }
+        if !settings.desktopLyricsEnabled { return }
+        applyPanelSize()
         positionPanelByStoredFactor()
         panel.orderFrontRegardless()
     }
@@ -57,10 +62,27 @@ final class DesktopLyricsWindowController: NSObject, NSWindowDelegate {
         if panel.isVisible { close() } else { show() }
     }
 
+    /// 把窗口挪回存储的位置因子处(菜单栏「重置位置」用)。
+    func resetPosition() {
+        AppSettings.desktopLyricsXFactor = 0.5
+        AppSettings.desktopLyricsYFactor = 0.85
+        applyPanelSize()
+        positionPanelByStoredFactor()
+        saveCurrentPositionFactor()
+    }
+
+    /// 应用退出时拆除事件监视器(本地监视器不注销会一直挂在 app 上)。
+    func teardown() {
+        removeLocalEventMonitor()
+    }
+
     // MARK: - Setup
 
     private func setupPanel() {
-        let initialSize = NSSize(width: 720, height: 120)
+        let initialSize = Self.panelSize(
+            fontSize: settings.fontSize,
+            showTranslation: settings.showTranslation
+        )
 
         let panel = NSPanel(
             contentRect: NSRect(origin: .zero, size: initialSize),
@@ -91,7 +113,7 @@ final class DesktopLyricsWindowController: NSObject, NSWindowDelegate {
         positionPanelByStoredFactor()
 
         let host = NSHostingView(
-            rootView: DesktopLyricsView(lyricsEngine: lyricsEngine)
+            rootView: DesktopLyricsView(lyricsEngine: lyricsEngine, settings: settings)
         )
         host.translatesAutoresizingMaskIntoConstraints = true
         host.autoresizingMask = [.width, .height]
@@ -99,24 +121,73 @@ final class DesktopLyricsWindowController: NSObject, NSWindowDelegate {
         panel.contentView = host
 
         self.hostingView = host
-        // self.panel 已经在 positionPanelByStoredFactor 之前赋值过了
 
-        // 监听设置变化
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(handleClickThroughChanged(_:)),
-            name: .desktopLyricsClickThroughChanged, object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(handleEnabledChanged(_:)),
-            name: .desktopLyricsEnabledChanged, object: nil
-        )
-
-        // 拖动监听
         installDragHandlers()
     }
 
+    /// 字号 / 翻译开关变化时,窗口要跟着变高,否则大字会被裁掉。
     private func observeSettings() {
-        // 引擎 currentLineIndex / currentLyrics 变化由 SwiftUI 内部订阅,这里不需要桥接
+        settings.$clickThrough
+            .receive(on: RunLoop.main)
+            .sink { [weak self] value in
+                self?.panel.ignoresMouseEvents = value
+            }
+            .store(in: &cancellables)
+
+        settings.$desktopLyricsEnabled
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] enabled in
+                guard let self else { return }
+                if enabled { self.show() } else { self.close() }
+            }
+            .store(in: &cancellables)
+
+        settings.$fontSize
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.applyPanelSize()
+            }
+            .store(in: &cancellables)
+
+        settings.$showTranslation
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.applyPanelSize()
+            }
+            .store(in: &cancellables)
+    }
+
+    // MARK: - Size
+
+    /// 根据字号 + 是否显示翻译算出窗口尺寸。
+    /// 内容最多是:上一行(0.7x)+ 当前行(最多 2 行 = 2x)+ 翻译(0.6x)+ 下一行(0.7x)。
+    static func panelSize(fontSize: Double, showTranslation: Bool) -> NSSize {
+        let width: CGFloat = 720
+        let factor: Double = showTranslation ? 4.4 : 3.6
+        let height = max(140, min(440, fontSize * factor + 40))
+        return NSSize(width: width, height: CGFloat(height))
+    }
+
+    private func applyPanelSize() {
+        guard panel != nil else { return }
+        let newSize = Self.panelSize(
+            fontSize: settings.fontSize,
+            showTranslation: settings.showTranslation
+        )
+        guard panel.frame.size != newSize else { return }
+
+        // 以窗口中心为锚点缩放,避免窗口从左上角"长出去"
+        let center = NSPoint(x: panel.frame.midX, y: panel.frame.midY)
+        var frame = panel.frame
+        frame.size = newSize
+        frame.origin = NSPoint(
+            x: center.x - newSize.width / 2,
+            y: center.y - newSize.height / 2
+        )
+        panel.setFrame(frame, display: true, animate: false)
     }
 
     // MARK: - Position
@@ -151,10 +222,13 @@ final class DesktopLyricsWindowController: NSObject, NSWindowDelegate {
     // MARK: - Drag
 
     private func installDragHandlers() {
+        guard localEventMonitor == nil else { return }
         // 用本地事件监视器监听鼠标拖动
-        NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp]) { [weak self] event in
-            guard let self, self.panel.isVisible else { return event }
-            guard event.window === self.panel else { return event }
+        localEventMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp]
+        ) { [weak self] event in
+            guard let self, let panel = self.panel, panel.isVisible else { return event }
+            guard event.window === panel else { return event }
 
             switch event.type {
             case .leftMouseDown:
@@ -164,10 +238,10 @@ final class DesktopLyricsWindowController: NSObject, NSWindowDelegate {
                 let current = event.locationInWindow
                 let dx = current.x - start.x
                 let dy = current.y - start.y
-                var origin = self.panel.frame.origin
+                var origin = panel.frame.origin
                 origin.x += dx
                 origin.y += dy
-                self.panel.setFrameOrigin(origin)
+                panel.setFrameOrigin(origin)
                 self.dragStartLocation = current  // 增量方式,避免漂移
             case .leftMouseUp:
                 self.dragStartLocation = nil
@@ -179,19 +253,10 @@ final class DesktopLyricsWindowController: NSObject, NSWindowDelegate {
         }
     }
 
-    // MARK: - Settings
-
-    @objc private func handleClickThroughChanged(_ note: Notification) {
-        let value = (note.object as? Bool) ?? AppSettings.clickThrough
-        panel.ignoresMouseEvents = value
-    }
-
-    @objc private func handleEnabledChanged(_ note: Notification) {
-        let value = (note.object as? Bool) ?? AppSettings.desktopLyricsEnabled
-        if value {
-            show()
-        } else {
-            close()
+    private func removeLocalEventMonitor() {
+        if let monitor = localEventMonitor {
+            NSEvent.removeMonitor(monitor)
+            localEventMonitor = nil
         }
     }
 
@@ -207,6 +272,7 @@ final class DesktopLyricsWindowController: NSObject, NSWindowDelegate {
 struct DesktopLyricsView: View {
 
     @ObservedObject var lyricsEngine: LyricsEngine
+    @ObservedObject var settings: AppSettingsStore
 
     var body: some View {
         ZStack {
@@ -225,18 +291,18 @@ struct DesktopLyricsView: View {
         }
         .background(
             VisualEffectBackground()
-                .opacity(AppSettings.desktopLyricsOpacity)
+                .opacity(settings.opacity)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     @ViewBuilder
     private func lyricStack(lyrics: Lyrics) -> some View {
-        if let idx = lyricsEngine.currentLineIndex {
+        if let idx = lyricsEngine.currentLineIndex, idx < lyrics.lines.count {
             // 上 1 行
             if idx > 0 {
                 Text(lyrics[idx - 1].content)
-                    .font(.system(size: AppSettings.desktopLyricsFontSize * 0.7))
+                    .font(.system(size: settings.fontSize * 0.7))
                     .foregroundStyle(.secondary.opacity(0.7))
                     .lineLimit(1)
                     .transition(.opacity)
@@ -244,16 +310,25 @@ struct DesktopLyricsView: View {
 
             // 当前行
             Text(lyrics[idx].content)
-                .font(.system(size: AppSettings.desktopLyricsFontSize, weight: .semibold))
+                .font(.system(size: settings.fontSize, weight: .semibold))
                 .foregroundStyle(.primary)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
 
+            // 翻译(可选)
+            if settings.showTranslation, let translation = lyrics[idx].translation, !translation.isEmpty {
+                Text(translation)
+                    .font(.system(size: settings.fontSize * 0.6))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(1)
+            }
+
             // 下 1 行
             if idx + 1 < lyrics.lines.count {
                 Text(lyrics[idx + 1].content)
-                    .font(.system(size: AppSettings.desktopLyricsFontSize * 0.7))
+                    .font(.system(size: settings.fontSize * 0.7))
                     .foregroundStyle(.secondary.opacity(0.7))
                     .lineLimit(1)
                     .transition(.opacity)
@@ -261,7 +336,7 @@ struct DesktopLyricsView: View {
         } else if !lyrics.isEmpty {
             // 还没到第一句
             Text(lyrics[0].content)
-                .font(.system(size: AppSettings.desktopLyricsFontSize * 0.8))
+                .font(.system(size: settings.fontSize * 0.8))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         } else {

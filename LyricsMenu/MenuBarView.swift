@@ -6,11 +6,10 @@
 //
 //  设计要点(参考 LyricsX MenuBarLyricsController):
 //  - 单个 NSStatusItem,点击切换 SwiftUI Popover
-//  - SwiftUI 面板包含:当前曲目信息、当前/下一行歌词、状态指示、偏移调节按钮、开关
-//  - 下拉内容用 `MenuBarExtra` SwiftUI 14+ 实现,跨平台一致
-//
-//  macOS 16+ 适配:用 `MenuBarExtra` SwiftUI Scene,替代旧版 NSStatusItem.menu = NSMenu 模式。
-//  这样可以享受 SwiftUI 的声明式 UI + 自动适配 Light/Dark 模式。
+//  - 可选在菜单栏图标旁直接显示当前歌词(`menubarLyricsEnabled`)
+//  - 面板包含:曲目信息 + 封面、当前 / 上 / 下一行 + 翻译、状态、
+//    歌词偏移、外观(字号 / 不透明度)、行为开关、维护动作
+//  - 设置统一走 `AppSettingsStore`,视图里不再有"改了不生效"的死开关
 //
 
 import SwiftUI
@@ -21,20 +20,25 @@ import AppKit
 final class MenuBarController: NSObject, ObservableObject {
 
     private let lyricsEngine: LyricsEngine
+    private let settings: AppSettingsStore
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
     private var cancellables: Set<AnyCancellable> = []
 
-    init(lyricsEngine: LyricsEngine) {
+    init(
+        lyricsEngine: LyricsEngine,
+        settings: AppSettingsStore,
+        onResetDesktopPosition: @escaping () -> Void
+    ) {
         self.lyricsEngine = lyricsEngine
+        self.settings = settings
         super.init()
-        setupStatusItem()
+        setupStatusItem(onResetDesktopPosition: onResetDesktopPosition)
         observeEngine()
     }
 
     deinit {
         // popover 会在 dealloc 时自动关闭
-        // 不主动调 close() 因为它需要 main actor
     }
 
     nonisolated func cleanup() {
@@ -50,11 +54,12 @@ final class MenuBarController: NSObject, ObservableObject {
 
     // MARK: - Setup
 
-    private func setupStatusItem() {
+    private func setupStatusItem(onResetDesktopPosition: @escaping () -> Void) {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = item.button {
             button.image = NSImage(systemSymbolName: "music.note", accessibilityDescription: "NiceLyricsX")
             button.image?.isTemplate = true
+            button.imagePosition = .imageLeading
             button.action = #selector(togglePopover(_:))
             button.target = self
         }
@@ -62,40 +67,81 @@ final class MenuBarController: NSObject, ObservableObject {
 
         let popover = NSPopover()
         popover.behavior = .transient
-        popover.contentSize = NSSize(width: 360, height: 480)
+        popover.contentSize = NSSize(width: 360, height: 580)
         popover.contentViewController = NSHostingController(
-            rootView: MenuBarContent(lyricsEngine: lyricsEngine, onClose: { [weak self] in
-                self?.popover?.performClose(nil)
-            })
+            rootView: MenuBarContent(
+                lyricsEngine: lyricsEngine,
+                settings: settings,
+                onResetDesktopPosition: onResetDesktopPosition
+            )
         )
         self.popover = popover
     }
 
     private func observeEngine() {
-        // 状态变化时,如果 statusItem 标题被占用,更新 SF Symbol 显示
+        // 图标形态跟着加载状态走
         lyricsEngine.$status
             .receive(on: RunLoop.main)
             .sink { [weak self] status in
                 self?.updateStatusItemAppearance(for: status)
             }
             .store(in: &cancellables)
+
+        // 菜单栏歌词文本:当前行 / 歌词整体 / 开关变化时刷新
+        lyricsEngine.$currentLineIndex
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.updateStatusItemTitle() }
+            .store(in: &cancellables)
+
+        lyricsEngine.$currentLyrics
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.updateStatusItemTitle() }
+            .store(in: &cancellables)
+
+        settings.$menubarLyricsEnabled
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.updateStatusItemTitle() }
+            .store(in: &cancellables)
     }
 
     private func updateStatusItemAppearance(for status: LyricsStatus) {
         guard let button = statusItem?.button else { return }
+        let symbol: String
+        let description: String
         switch status {
         case .searching:
-            button.image = NSImage(systemSymbolName: "ellipsis.circle", accessibilityDescription: "搜索中")
-            button.image?.isTemplate = true
+            symbol = "ellipsis.circle"
+            description = "搜索中"
         case .notFound:
-            button.image = NSImage(systemSymbolName: "music.note", accessibilityDescription: "无歌词")
-            button.image?.isTemplate = true
+            symbol = "music.note"
+            description = "无歌词"
         case .failed:
-            button.image = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: "错误")
-            button.image?.isTemplate = true
+            symbol = "exclamationmark.triangle"
+            description = "错误"
         default:
-            button.image = NSImage(systemSymbolName: "music.note", accessibilityDescription: "NiceLyricsX")
-            button.image?.isTemplate = true
+            symbol = "music.note"
+            description = "NiceLyricsX"
+        }
+        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: description)
+        button.image?.isTemplate = true
+    }
+
+    /// 菜单栏图标旁显示当前歌词行(可选功能)。
+    private func updateStatusItemTitle() {
+        guard let button = statusItem?.button else { return }
+
+        var rendered = ""
+        if settings.menubarLyricsEnabled,
+           let lyrics = lyricsEngine.currentLyrics,
+           let index = lyricsEngine.currentLineIndex,
+           index < lyrics.lines.count {
+            let content = lyrics.lines[index].content
+            let trimmed = content.count > 26 ? String(content.prefix(25)) + "…" : content
+            rendered = " " + trimmed
+        }
+
+        if button.title != rendered {
+            button.title = rendered
         }
     }
 
@@ -110,50 +156,100 @@ final class MenuBarController: NSObject, ObservableObject {
     }
 }
 
+// MARK: - 封面加载
+
+/// 面板里的专辑封面。`PlaybackInfo.artworkURL` 通常为空(MediaRemote 已禁用),
+/// 所以这里用 iTunes Search API 反查一次,结果缓存在 `ArtworkService` 里。
+@MainActor
+final class ArtworkStore: ObservableObject {
+
+    @Published private(set) var url: URL?
+
+    private var currentKey: String?
+    private var task: Task<Void, Never>?
+
+    func load(for info: PlaybackInfo) {
+        let key = ArtworkService.cacheKey(title: info.title, artist: info.artist)
+        guard key != currentKey else { return }
+        currentKey = key
+        task?.cancel()
+        url = info.artworkURL
+
+        guard !key.isEmpty, url == nil else { return }
+        task = Task { [weak self] in
+            let found = await ArtworkService.shared.artworkURL(title: info.title, artist: info.artist)
+            guard !Task.isCancelled else { return }
+            self?.url = found
+        }
+    }
+}
+
 // MARK: - 下拉内容 SwiftUI
 
 struct MenuBarContent: View {
 
     @ObservedObject var lyricsEngine: LyricsEngine
-    var onClose: () -> Void
+    @ObservedObject var settings: AppSettingsStore
+    var onResetDesktopPosition: () -> Void
 
-    @State private var desktopEnabled: Bool = AppSettings.desktopLyricsEnabled
-    @State private var autoOpen: Bool = AppSettings.desktopLyricsAutoOpen
-    @State private var clickThrough: Bool = AppSettings.clickThrough
+    @StateObject private var artwork = ArtworkStore()
+    @State private var automationStatus: AutomationPermission.Status = .notDetermined
+    @State private var toast: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(spacing: 0) {
             header
             Divider()
-            trackInfo
-            Divider()
-            lyricsView
-            Divider()
-            offsetControls
-            Divider()
-            toggleControls
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if automationStatus.needsAttention {
+                        permissionWarning
+                    }
+                    trackCard
+                    lyricsCard
+                    offsetSection
+                    appearanceSection
+                    behaviorSection
+                    maintenanceSection
+                }
+                .padding(16)
+            }
         }
-        .padding(16)
         .frame(width: 360)
+        .onAppear {
+            artwork.load(for: lyricsEngine.currentTrack)
+            automationStatus = AutomationPermission.status()
+        }
+        .onChange(of: lyricsEngine.currentTrack) { _, track in
+            artwork.load(for: track)
+        }
     }
 
     // MARK: Header
 
     private var header: some View {
-        HStack {
+        HStack(spacing: 10) {
             Image(systemName: "music.note.list")
-                .font(.title2)
-            VStack(alignment: .leading) {
+                .font(.title3)
+            VStack(alignment: .leading, spacing: 1) {
                 Text("NiceLyricsX").font(.headline)
-                Text(statusText).font(.caption).foregroundStyle(.secondary)
+                Text(statusText)
+                    .font(.caption)
+                    .foregroundStyle(statusColor)
+                    .lineLimit(1)
             }
             Spacer()
+            Circle()
+                .fill(lyricsEngine.isPlaying ? Color.green : Color.secondary.opacity(0.4))
+                .frame(width: 8, height: 8)
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 
     private var statusText: String {
         switch lyricsEngine.status {
-        case .idle: return "等待播放"
+        case .idle: return lyricsEngine.currentTrack.title.isEmpty ? "等待播放" : "已停止"
         case .searching: return "搜索歌词…"
         case .loaded(let n): return "已加载 \(n) 行"
         case .notFound: return "未找到歌词"
@@ -161,73 +257,161 @@ struct MenuBarContent: View {
         }
     }
 
-    // MARK: 当前曲目
+    private var statusColor: Color {
+        if case .failed = lyricsEngine.status { return .red }
+        if case .notFound = lyricsEngine.status { return .orange }
+        return .secondary
+    }
 
-    @ViewBuilder
-    private var trackInfo: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if case .loaded = lyricsEngine.status {
-                HStack {
-                    Image(systemName: "music.quarternote.3")
-                    Text("歌词已就绪")
+    // MARK: 曲目信息
+
+    private var trackCard: some View {
+        HStack(alignment: .top, spacing: 10) {
+            artworkThumbnail
+
+            VStack(alignment: .leading, spacing: 2) {
+                if lyricsEngine.currentTrack.title.isEmpty {
+                    Text("没有正在播放的曲目")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                }
-            } else {
-                HStack {
-                    Image(systemName: "hourglass")
-                    Text("启动 Apple Music 并播放歌曲后会自动加载歌词")
+                } else {
+                    Text(lyricsEngine.currentTrack.title)
                         .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .lineLimit(1)
+                    Text(artistAlbumText)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    if let source = lyricSourceText {
+                        Text(source)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                    }
                 }
             }
+            Spacer(minLength: 0)
         }
     }
 
-    // MARK: 当前 / 上一行 / 下一行歌词预览
+    private var artistAlbumText: String {
+        let artist = lyricsEngine.currentTrack.artist
+        let album = lyricsEngine.currentTrack.album
+        if artist.isEmpty { return album }
+        if album.isEmpty { return artist }
+        return "\(artist) — \(album)"
+    }
 
-    private var lyricsView: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if let lyrics = lyricsEngine.currentLyrics, !lyrics.isEmpty {
-                // 用 lastPlaybackTime 取上下文(我们没有直接暴露,通过 Lyrics 自己算)
-                // 这里直接显示当前行 + 下一行
-                if let idx = lyricsEngine.currentLineIndex {
-                    if idx > 0 {
-                        Text(lyrics[idx - 1].content)
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
+    private var lyricSourceText: String? {
+        guard let lyrics = lyricsEngine.currentLyrics, !lyrics.source.isEmpty else { return nil }
+        return "歌词来源:\(lyrics.source)"
+    }
+
+    @ViewBuilder
+    private var artworkThumbnail: some View {
+        Group {
+            if let url = artwork.url {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().scaledToFill()
+                    default:
+                        artworkPlaceholder
                     }
-                    Text(lyrics[idx].content)
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                        .lineLimit(2)
-                    if idx + 1 < lyrics.lines.count {
-                        Text(lyrics[idx + 1].content)
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                } else {
-                    Text("未到第一句")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
                 }
             } else {
-                Text("暂无歌词")
+                artworkPlaceholder
+            }
+        }
+        .frame(width: 48, height: 48)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private var artworkPlaceholder: some View {
+        ZStack {
+            Rectangle().fill(Color.secondary.opacity(0.15))
+            Image(systemName: "music.note")
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: 歌词预览
+
+    private var lyricsCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let lyrics = lyricsEngine.currentLyrics, !lyrics.isEmpty,
+               let idx = lyricsEngine.currentLineIndex, idx < lyrics.lines.count {
+                if idx > 0 {
+                    Text(lyrics[idx - 1].content)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Text(lyrics[idx].content)
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                    .lineLimit(2)
+                if settings.showTranslation,
+                   let translation = lyrics[idx].translation, !translation.isEmpty {
+                    Text(translation)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                if idx + 1 < lyrics.lines.count {
+                    Text(lyrics[idx + 1].content)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            } else if let lyrics = lyricsEngine.currentLyrics, !lyrics.isEmpty {
+                Text("即将开始…")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Text(lyrics[0].content)
+                    .font(.title3)
+                    .lineLimit(2)
+            } else {
+                Text(lyricsStatusPlaceholder)
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.secondary.opacity(0.08))
+        )
     }
 
-    // MARK: 偏移调节
+    private var lyricsStatusPlaceholder: String {
+        switch lyricsEngine.status {
+        case .searching: return "正在搜索歌词…"
+        case .notFound: return "未找到歌词"
+        case .failed(let msg): return msg
+        default: return "打开 Apple Music 播放歌曲后会自动加载歌词"
+        }
+    }
 
-    private var offsetControls: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("歌词偏移: \(formattedDelay)")
-                .font(.subheadline)
+    // MARK: 偏移
+
+    private var offsetSection: some View {
+        section("歌词偏移") {
+            HStack {
+                Text(formattedDelay)
+                    .font(.system(.body, design: .monospaced))
+                    .frame(width: 56, alignment: .leading)
+                Slider(
+                    value: Binding(
+                        get: { lyricsEngine.timeDelay },
+                        set: { lyricsEngine.timeDelay = $0 }
+                    ),
+                    in: -10...10,
+                    step: 0.1
+                )
+            }
             HStack(spacing: 8) {
                 Button("-1s") { lyricsEngine.adjustTimeDelay(by: -1) }
                 Button("-0.1s") { lyricsEngine.adjustTimeDelay(by: -0.1) }
@@ -247,43 +431,156 @@ struct MenuBarContent: View {
         return String(format: "%+.1fs", d)
     }
 
-    // MARK: 开关
+    // MARK: 外观
 
-    private var toggleControls: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Toggle("桌面歌词", isOn: $desktopEnabled)
-                .onChange(of: desktopEnabled) { _, newValue in
-                    AppSettings.desktopLyricsEnabled = newValue
-                    NotificationCenter.default.post(
-                        name: .desktopLyricsEnabledChanged, object: newValue
-                    )
+    private var appearanceSection: some View {
+        section("外观") {
+            sliderRow(
+                title: "字号",
+                value: $settings.fontSize,
+                range: AppSettings.desktopLyricsFontSizeRange,
+                step: 1,
+                display: "\(Int(settings.fontSize)) pt"
+            )
+            sliderRow(
+                title: "不透明度",
+                value: $settings.opacity,
+                range: AppSettings.desktopLyricsOpacityRange,
+                step: 0.05,
+                display: "\(Int((settings.opacity * 100).rounded()))%"
+            )
+        }
+    }
+
+    private func sliderRow(
+        title: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        step: Double,
+        display: String
+    ) -> some View {
+        HStack(spacing: 8) {
+            Text(title)
+                .font(.subheadline)
+                .frame(width: 56, alignment: .leading)
+            Slider(value: value, in: range, step: step)
+            Text(display)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(width: 52, alignment: .trailing)
+        }
+    }
+
+    // MARK: 行为开关
+
+    private var behaviorSection: some View {
+        section("行为") {
+            Toggle("桌面歌词", isOn: $settings.desktopLyricsEnabled)
+            Toggle("鼠标穿透(歌词不阻挡点击)", isOn: $settings.clickThrough)
+            Toggle("显示翻译", isOn: $settings.showTranslation)
+            Toggle("启动时自动打开桌面歌词", isOn: $settings.desktopLyricsAutoOpen)
+            Toggle("菜单栏显示当前歌词", isOn: $settings.menubarLyricsEnabled)
+            Toggle("登录时启动", isOn: Binding(
+                get: { settings.launchAtLogin },
+                set: { settings.setLaunchAtLogin($0) }
+            ))
+            if let error = settings.launchAtLoginError {
+                Text("登录项设置失败:\(error)")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+                    .lineLimit(3)
+            }
+        }
+        .toggleStyle(.switch)
+        .controlSize(.small)
+    }
+
+    // MARK: 维护
+
+    private var maintenanceSection: some View {
+        section("维护") {
+            HStack(spacing: 8) {
+                Button("重新搜索歌词") {
+                    lyricsEngine.reloadCurrent()
+                    showToast("正在重新搜索…")
                 }
-            Toggle("启动时自动打开", isOn: $autoOpen)
-                .onChange(of: autoOpen) { _, newValue in
-                    AppSettings.desktopLyricsAutoOpen = newValue
+                Button("重置窗口位置") {
+                    onResetDesktopPosition()
+                    showToast("桌面歌词窗口已回到默认位置")
                 }
-            Toggle("鼠标穿透(歌词不阻挡点击)", isOn: $clickThrough)
-                .onChange(of: clickThrough) { _, newValue in
-                    AppSettings.clickThrough = newValue
-                    NotificationCenter.default.post(
-                        name: .desktopLyricsClickThroughChanged, object: newValue
-                    )
+            }
+            .controlSize(.small)
+
+            HStack(spacing: 8) {
+                Button("清除歌词缓存") {
+                    Task {
+                        await lyricsEngine.clearCacheAndReload()
+                        showToast("缓存已清除")
+                    }
                 }
-            HStack {
+                .controlSize(.small)
+
                 Spacer()
+
                 Button("退出") {
                     NSApp.terminate(nil)
                 }
                 .keyboardShortcut("q")
+                .controlSize(.small)
+            }
+
+            if let toast {
+                Text(toast)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
         }
     }
-}
 
-// MARK: - 通知名
+    private func showToast(_ message: String) {
+        toast = message
+        Task {
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            if toast == message { toast = nil }
+        }
+    }
 
-extension Notification.Name {
-    static let desktopLyricsEnabledChanged = Notification.Name("NiceLyricsX.desktopLyricsEnabledChanged")
-    static let desktopLyricsClickThroughChanged = Notification.Name("NiceLyricsX.desktopLyricsClickThroughChanged")
-    static let desktopLyricsPositionChanged = Notification.Name("NiceLyricsX.desktopLyricsPositionChanged")
+    // MARK: 权限提示
+
+    private var permissionWarning: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("自动化权限被拒绝,读不到 Apple Music", systemImage: "exclamationmark.triangle.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+            Text("系统设置 → 隐私与安全性 → 自动化 → NiceLyricsX → 勾选 Music")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                Button("打开系统设置") { AutomationPermission.openSystemSettings() }
+                Button("重新检查") { automationStatus = AutomationPermission.status() }
+            }
+            .controlSize(.small)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.orange.opacity(0.12))
+        )
+    }
+
+    // MARK: 布局工具
+
+    private func section<Content: View>(
+        _ title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+            content()
+        }
+    }
 }

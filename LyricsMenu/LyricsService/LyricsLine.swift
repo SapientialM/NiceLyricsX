@@ -139,6 +139,32 @@ public struct Lyrics: Sendable, Equatable, Hashable, RandomAccessCollection {
         let dur = Int(duration.rounded())
         return "\(title.lowercased())|\(artist.lowercased())|\(dur)"
     }
+
+    // MARK: - 翻译合并
+
+    /// 把行时间戳换算成毫秒整数 key —— 翻译行和正文行的时间戳允许有
+    /// 毫秒级差异,用毫秒取整做对齐比浮点相等稳。
+    public static func translationKey(for position: TimeInterval) -> Int {
+        Int((position * 1000).rounded())
+    }
+
+    /// 合并翻译。已有的翻译(如 LRC 内嵌 `【】`)优先,不会被覆盖。
+    public func applyingTranslations(_ translations: [Int: String]) -> Lyrics {
+        guard !translations.isEmpty else { return self }
+        let merged = lines.map { line -> LyricsLine in
+            guard line.translation == nil,
+                  let translation = translations[Self.translationKey(for: line.position)] else {
+                return line
+            }
+            return LyricsLine(
+                index: line.index,
+                position: line.position,
+                content: line.content,
+                translation: translation
+            )
+        }
+        return Lyrics(lines: merged, timeDelay: timeDelay, source: source, trackKey: trackKey)
+    }
 }
 
 // MARK: - 空占位

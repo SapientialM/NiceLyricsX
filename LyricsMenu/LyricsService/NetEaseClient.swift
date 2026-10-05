@@ -59,13 +59,51 @@ public struct NetEaseClient: Sendable {
         }
         FileHandle.standardError.write(Data("[NetEase] best: \(best.name) - \(best.artistsName) dur=\(best.duration) id=\(best.id)\n".utf8))
 
-        // 2. 取歌词
-        let lyricText = try await fetchLyrics(songId: best.id)
-        guard !lyricText.isEmpty else {
+        // 2. 取歌词(正文 + 翻译)
+        let payload = try await fetchLyrics(songId: best.id)
+        guard !payload.lrc.isEmpty else {
             throw LyricsError.noResult
         }
 
-        return LyricsParser.parse(lrcText: lyricText, trackKey: trackKey, source: "NetEase")
+        var lyrics = LyricsParser.parse(lrcText: payload.lrc, trackKey: trackKey, source: "NetEase")
+
+        // 3. 合并 tlyric 翻译(网易云把翻译放在独立的 LRC 里,时间戳对齐)。
+        //    注意 tlyric 经常存在但内容为空 / 时间戳对不上 —— 只有真的合上了
+        //    才改 source,不然 UI 会显示"有翻译"却一行都看不到。
+        lyrics = Self.mergingTranslation(into: lyrics, tlyric: payload.translation)
+
+        let translatedCount = lyrics.lines.filter { $0.translation?.isEmpty == false }.count
+        FileHandle.standardError.write(Data("[NetEase] parsed \(lyrics.count) lines, translated=\(translatedCount)\n".utf8))
+        return lyrics
+    }
+
+    /// 把网易云的 tlyric 合进正文歌词。
+    /// 只有确实有行被翻译到了,才把 source 标成 `NetEase + 翻译`。可单测。
+    public static func mergingTranslation(into lyrics: Lyrics, tlyric: String?) -> Lyrics {
+        guard let tlyric, !tlyric.isEmpty else { return lyrics }
+        let table = translationTable(fromLRC: tlyric)
+        guard !table.isEmpty else { return lyrics }
+
+        let merged = lyrics.applyingTranslations(table)
+        guard merged.lines.contains(where: { $0.translation?.isEmpty == false }) else {
+            return merged
+        }
+        return Lyrics(
+            lines: merged.lines,
+            timeDelay: merged.timeDelay,
+            source: "NetEase + 翻译",
+            trackKey: merged.trackKey
+        )
+    }
+
+    /// 把网易云的 tlyric 文本转成 `[毫秒key: 译文]` 查表。可单测。
+    public static func translationTable(fromLRC text: String) -> [Int: String] {
+        let parsed = LyricsParser.parse(lrcText: text, source: "NetEaseTranslation")
+        var table: [Int: String] = [:]
+        for line in parsed.lines where !line.content.isEmpty {
+            table[Lyrics.translationKey(for: line.position)] = line.content
+        }
+        return table
     }
 
     // MARK: - /api/search/get
@@ -108,7 +146,8 @@ public struct NetEaseClient: Sendable {
 
     // MARK: - /api/song/lyric
 
-    private func fetchLyrics(songId: Int) async throws -> String {
+    /// 取歌词。`tv=-1` 时网易云会额外返回 `tlyric`(翻译),这里一并带回。
+    private func fetchLyrics(songId: Int) async throws -> LyricPayload {
         var components = URLComponents(string: "https://music.163.com/api/song/lyric")!
         components.queryItems = [
             URLQueryItem(name: "id", value: String(songId)),
@@ -131,7 +170,9 @@ public struct NetEaseClient: Sendable {
                 throw LyricsError.http(status: http.statusCode)
             }
             let envelope = try JSONDecoder().decode(NetEaseLyricResponse.self, from: data)
-            return envelope.lrc?.lyric ?? ""
+            let lrc = envelope.lrc?.lyric ?? ""
+            let translation = envelope.tlyric?.lyric
+            return LyricPayload(lrc: lrc, translation: translation)
         } catch let error as LyricsError {
             throw error
         } catch {
@@ -179,6 +220,12 @@ public struct NetEaseClient: Sendable {
 }
 
 // MARK: - 数据模型
+
+/// `/api/song/lyric` 的正文 + 翻译载荷。
+struct LyricPayload: Sendable, Equatable {
+    let lrc: String
+    let translation: String?
+}
 
 private struct NetEaseSearchResponse: Codable {
     let result: Result

@@ -30,8 +30,21 @@ public final class LyricsEngine: ObservableObject {
     @Published public private(set) var currentLyrics: Lyrics? = nil
     @Published public private(set) var currentLineIndex: Int? = nil
     @Published public private(set) var status: LyricsStatus = .idle
+
+    /// 当前曲目元数据。只在「换歌」时更新 —— 播放进度每 2 秒刷一次,
+    /// 如果每次都发新值,SwiftUI 会跟着无意义重绘。
+    @Published public private(set) var currentTrack: PlaybackInfo = .empty
+
+    /// 是否正在播放。暂停 / 停止时用来给 UI 显示状态。
+    @Published public private(set) var isPlaying: Bool = false
+
     @Published public var timeDelay: TimeInterval = 0 {
         didSet {
+            // 手动赋值也要夹到 ±10s(UI 的「重置」/ 启动时读 UserDefaults 都走这里)
+            let clamped = max(-10, min(10, timeDelay))
+            if clamped != timeDelay {
+                timeDelay = clamped   // 在 didSet 里赋值不会重入 didSet
+            }
             // 偏移改变 → 重新计算当前行
             recomputeCurrentLine(playbackTime: lastPlaybackTime)
             // 持久化(由外层把 userDefaultsDelay 传进来)
@@ -88,9 +101,17 @@ public final class LyricsEngine: ObservableObject {
     // MARK: - 公开操作
 
     /// 手动重新搜索当前曲目。
-    public func reloadCurrent() {
+    /// - Parameter forceRefresh: 默认跳过本地缓存,真正重新联网搜一次。
+    public func reloadCurrent(forceRefresh: Bool = true) {
         guard !lastPlaybackInfo.title.isEmpty else { return }
-        Task { await loadLyrics(for: lastPlaybackInfo) }
+        Task { await loadLyrics(for: lastPlaybackInfo, forceRefresh: forceRefresh) }
+    }
+
+    /// 清空本地歌词缓存,然后重新搜索当前曲目。
+    public func clearCacheAndReload() async {
+        await provider.clearCache()
+        guard !lastPlaybackInfo.title.isEmpty else { return }
+        await loadLyrics(for: lastPlaybackInfo, forceRefresh: true)
     }
 
     /// 手动设置偏移(供 UI 滑块 / 菜单按钮调用)。
@@ -100,15 +121,15 @@ public final class LyricsEngine: ObservableObject {
 
     /// 清空当前歌词(暂停时显示"等待播放"等)。
     public func clear() {
-        currentLyrics = nil
-        currentLineIndex = nil
-        status = .idle
-        currentTrackKey = nil
+        resetToIdle()
     }
 
     // MARK: - 内部:处理播放信息
 
     private func handlePlaybackInfo(_ info: PlaybackInfo) async {
+        // 0. 曲目元数据 / 播放状态 —— 只在真正变化时发布,避免每 2 秒一次空重绘
+        publishTrackIfNeeded(info)
+
         let trackKey = Lyrics.trackKey(
             title: info.title,
             artist: info.artist,
@@ -129,7 +150,7 @@ public final class LyricsEngine: ObservableObject {
         currentTrackKey = trackKey.isEmpty ? nil : trackKey
 
         guard !info.title.isEmpty, !info.artist.isEmpty else {
-            clear()
+            resetToIdle()
             return
         }
 
@@ -137,15 +158,44 @@ public final class LyricsEngine: ObservableObject {
         handleProgressUpdate(time: info.playbackTime, isPlaying: info.isPlaying)
     }
 
+    /// 只在曲目身份 / 播放状态变化时推送,进度更新不推送。
+    private func publishTrackIfNeeded(_ info: PlaybackInfo) {
+        let trackChanged = info.title != currentTrack.title
+            || info.artist != currentTrack.artist
+            || info.album != currentTrack.album
+            || info.source != currentTrack.source
+            || abs(info.duration - currentTrack.duration) > 0.5
+        if trackChanged {
+            currentTrack = info
+        }
+        if isPlaying != info.isPlaying {
+            isPlaying = info.isPlaying
+        }
+    }
+
+    /// 回到「没在放歌」的静默态。重复调用不产生 @Published 抖动 ——
+    /// 轮询每 2 秒来一次,每次无脑赋值会让整个 UI 每 2 秒重绘一遍。
+    private func resetToIdle() {
+        loadTask?.cancel()
+        loadTask = nil
+        nextLineWakeupTask?.cancel()
+        nextLineWakeupTask = nil
+        currentTrackKey = nil
+
+        if currentLyrics != nil { currentLyrics = nil }
+        if currentLineIndex != nil { currentLineIndex = nil }
+        if status != .idle { status = .idle }
+    }
+
     // MARK: - 内部:加载歌词
 
-    private func loadLyrics(for info: PlaybackInfo) async {
+    private func loadLyrics(for info: PlaybackInfo, forceRefresh: Bool = false) async {
         loadTask?.cancel()
-        status = .searching
+        if status != .searching { status = .searching }
 
         let task = Task { [provider, logger] in
             do {
-                let lyrics = try await provider.loadLyrics(for: info)
+                let lyrics = try await provider.loadLyrics(for: info, forceRefresh: forceRefresh)
                 if Task.isCancelled { return }
                 self.acceptLoadedLyrics(lyrics)
             } catch {
