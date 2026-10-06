@@ -39,6 +39,9 @@ public enum AppDefaultsKey: String {
 
     /// 桌面歌词是否在正文下方显示翻译行。
     case desktopLyricsShowTranslation = "desktopLyrics.showTranslation"
+
+    /// 刘海歌词显示模式(`NotchLyricsMode` 的 rawValue)。
+    case notchLyricsMode = "notchLyrics.mode"
 }
 
 extension UserDefaults {
@@ -145,6 +148,15 @@ public enum AppSettings {
 
     /// 桌面歌词背景不透明度可选范围。
     public static let desktopLyricsOpacityRange: ClosedRange<Double> = 0.15...1.0
+
+    /// 刘海歌词显示模式。
+    public static var notchLyricsMode: NotchLyricsMode {
+        get {
+            guard let raw = UserDefaults.standard.string(for: .notchLyricsMode) else { return .off }
+            return NotchLyricsMode(rawValue: raw) ?? .off
+        }
+        set { UserDefaults.standard.set(newValue.rawValue, for: .notchLyricsMode) }
+    }
 }
 
 // MARK: - 屏幕坐标 → 位置因子

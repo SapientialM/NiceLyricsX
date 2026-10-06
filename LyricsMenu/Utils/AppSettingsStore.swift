@@ -70,6 +70,13 @@ public final class AppSettingsStore: ObservableObject {
         didSet { AppSettings.menubarLyricsEnabled = menubarLyricsEnabled }
     }
 
+    // MARK: - 刘海歌词
+
+    /// 刘海歌词显示模式:关闭 / 切歌时出现 / 常驻。
+    @Published public var notchLyricsMode: NotchLyricsMode {
+        didSet { AppSettings.notchLyricsMode = notchLyricsMode }
+    }
+
     // MARK: - 登录时启动
 
     /// 是否已注册为登录项。真源是 `SMAppService`,不是 UserDefaults。
@@ -88,6 +95,7 @@ public final class AppSettingsStore: ObservableObject {
         fontSize = AppSettings.desktopLyricsFontSize
         opacity = AppSettings.desktopLyricsOpacity
         menubarLyricsEnabled = AppSettings.menubarLyricsEnabled
+        notchLyricsMode = AppSettings.notchLyricsMode
         launchAtLogin = LaunchAtLogin.isEnabled
     }
 

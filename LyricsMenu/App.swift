@@ -37,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItemController: MenuBarController!
     private var lyricsEngine: LyricsEngine!
     private var desktopWindowController: DesktopLyricsWindowController!
+    private var notchWindowController: NotchLyricsWindowController!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // 1. 确保是 accessory(LSUIElement 在 Info.plist 已经设了,这里兜底)
@@ -70,7 +71,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.desktopWindowController?.resetPosition()
         }
 
-        // 7. 恢复桌面歌词窗口的启动状态。
+        // 7. 刘海歌词(菜单栏下沿、水平居中于刘海;关闭时窗口不创建显示)
+        notchWindowController = NotchLyricsWindowController(
+            lyricsEngine: lyricsEngine,
+            settings: settings
+        )
+        notchWindowController.start()
+
+        // 8. 恢复桌面歌词窗口的启动状态。
         //    `desktopLyricsEnabled` 是「窗口当前是否显示」的真源,启动时由
         //    「启动时自动打开」决定 —— 否则第一次打开面板会看到开关是 ON、
         //    窗口却不在(用户点一下关、再点一下开才能看到窗口)。
@@ -81,7 +89,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settings.desktopLyricsEnabled = false
         }
 
-        // 8. 检测 / 请求自动化权限(后台执行,不阻塞启动)
+        // 9. 检测 / 请求自动化权限(后台执行,不阻塞启动)
         requestAutomationPermission()
     }
 
@@ -90,6 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItemController?.cleanup()
         desktopWindowController?.teardown()
         desktopWindowController?.close()
+        notchWindowController?.teardown()
     }
 
     /// 检查 Apple Music 的自动化权限。

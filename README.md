@@ -64,6 +64,7 @@ NiceLyricsX 不是一个独立播放器 —— 它住在你的菜单栏,听 Appl
 | --- | --- |
 | 看当前这行歌词 | 菜单栏图标 → 弹出的面板里就能看到 |
 | 把歌词投到桌面 | 弹出的面板里把 **桌面歌词** 打开 |
+| 想让歌词从刘海里冒出来 | 面板 **刘海歌词** 选 **切歌时出现**(换歌时冒头 3.5 秒)或 **常驻**;鼠标移到刘海也能手动展开 |
 | 歌词比唱快了/慢了 | 弹出的面板里按 **±0.1s** 或 **±1s** 微调,也可以直接拖偏移滑杆 |
 | 调整完想让所有歌曲都按这个偏移来 | 偏移是全局的,改一次到处生效,自动保存 |
 | 桌面歌词挡住了别的东西 | 弹出的面板里把 **鼠标穿透** 打开 |
@@ -86,6 +87,8 @@ NiceLyricsX 不是一个独立播放器 —— 它住在你的菜单栏,听 Appl
 
 - **菜单栏常驻**:没有 Dock 图标,不出现在 ⌘+Tab,安静地待着
 - **菜单栏歌词**(可选):打开后状态栏图标旁边直接跟当前这一行
+- **刘海歌词**:MacBook 那块黑刘海也能当歌词屏 —— 可以在换歌时从刘海下方冒出来,
+  也可以常驻;鼠标移到刘海或歌词条上会保持展开。用的是公开 API,不碰私有 framework
 - **双数据源歌词**:优先 [LRCLIB](https://lrclib.net)(欧美 + 流行中文),搜不到时自动回退到 [网易云音乐](https://music.163.com)(中文 / 抖音 / 翻唱),基本能找到 90% 的歌
 - **翻译**:LRC 内嵌 `【翻译】` 和网易云 `tlyric` 都会合并进来,桌面歌词和面板都能显示
 - **专辑封面**:面板里显示当前曲目封面(走 iTunes Search API 反查,进程内缓存)
@@ -233,12 +236,15 @@ bash scripts/make-dmg.sh
 swift test
 ```
 
-80 个单元测试,覆盖:
+111 个单元测试,覆盖:
 - LRC 解析(标准 / 多时间标签 / 行内翻译 / ID 标签 / Windows 行尾)
 - Lyrics 二分查找 + 偏移 + 翻译合并(含网易云 `tlyric` 对不上的情况)
 - PlaybackState 状态机 + 容差比较
 - LyricsEngine(缓存命中 → `loaded`、偏移 ±10s 夹取、静止态不抖动)
 - LRCLIB / 网易云 API 响应解码、封面响应解码
+- **网络重试**:用 `URLProtocol` 打桩验证 503 → 退避重试 → 成功、重试用尽、
+  404 不重试、超时重试、取消不重试、`Retry-After` 解析与 clamp
+- **刘海几何**:用真实机器样本锁住刘海宽度/高度/菜单栏高度/歌词条位置/悬停热区
 - **AppleScript 编译**:把生产用的那段 AppleScript 直接交给 `osascript -e`,
   编译不过就红 —— 这条是踩过 `tell application <变量>` 报 -2741 之后加的
 
@@ -254,6 +260,7 @@ NiceLyricsX/
 │   ├── App.swift                            # @main + AppDelegate
 │   ├── MenuBarView.swift                    # 菜单栏 status item + SwiftUI 面板 + 封面加载
 │   ├── DesktopLyricsWindow.swift            # 桌面悬浮歌词(NSPanel + 毛玻璃)
+│   ├── NotchLyricsWindow.swift              # 刘海歌词(菜单栏下沿 + 悬停展开)
 │   ├── MusicPlayer/
 │   │   ├── PlaybackInfo.swift               # 播放状态数据(起播时间戳)
 │   │   ├── MusicPlayerProtocol.swift        # 播放器协议 + 多源代理
@@ -271,12 +278,13 @@ NiceLyricsX/
 │   │   ├── UserDefaults+Extension.swift     # 类型安全持久化 + 屏幕位置因子
 │   │   ├── AppSettingsStore.swift           # 设置唯一真源(@Published + 持久化)
 │   │   ├── LaunchAtLogin.swift              # SMAppService 登录项
-│   │   └── AutomationPermission.swift       # Apple Events / TCC 权限检测
+│   │   ├── AutomationPermission.swift       # Apple Events / TCC 权限检测
+│   │   └── NotchGeometry.swift              # 刘海几何(公开 API)
 │   └── Resources/
 │       ├── Info.plist                       # LSUIElement=true
 │       ├── NiceLyricsX.entitlements         # 必要权限
 │       └── Assets.xcassets
-├── Tests/                                    # 单元测试(80 个)
+├── Tests/                                    # 单元测试(111 个)
 ├── LyricsMenu.xcodeproj
 ├── Package.swift                             # SPM 清单
 ├── CHANGELOG.md
@@ -290,6 +298,7 @@ NiceLyricsX/
 - **播放器查询不碰主线程**:AppleScript 是同步阻塞的,统一丢到串行队列,并且同一时刻只允许一次查询在飞
 - **设置唯一真源**:`AppSettingsStore` 一个 `@Published` 属性同时负责"广播"和"持久化",取代了之前"写进 UserDefaults 但没人读"的死开关
 - **位置比例因子**:`NSScreen.positionFactor` 把窗口坐标存成 `[0, 1]` 比例,4K / 多屏切换不破相
+- **刘海几何**:`NSScreen.safeAreaInsets.top` 判断有没有刘海,`auxiliaryTopLeftArea` / `auxiliaryTopRightArea` 反推刘海宽度;歌词条窗口用 `level = .mainMenu + 3` 压在菜单栏之上,但位置在菜单栏**下方**,并靠 `ignoresMouseEvents` 做到完全不抢鼠标事件
 - **双源 fallback**:LRCLIB noResult 才走网易云,其它错误直接抛(避免掩盖真问题)
 
 ---

@@ -209,6 +209,7 @@ struct MenuBarContent: View {
                     lyricsCard
                     offsetSection
                     appearanceSection
+                    notchSection
                     behaviorSection
                     maintenanceSection
                 }
@@ -468,6 +469,40 @@ struct MenuBarContent: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(width: 52, alignment: .trailing)
+        }
+    }
+
+    // MARK: 刘海歌词
+
+    private var notchSection: some View {
+        section("刘海歌词") {
+            Picker("", selection: $settings.notchLyricsMode) {
+                ForEach(NotchLyricsMode.allCases) { mode in
+                    Text(mode.displayName).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+
+            Text(notchHint)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    @MainActor
+    private var notchHint: String {
+        let notchState = NotchGeometry.notchedScreen() != nil
+            ? "已识别到刘海"
+            : "这台机器没有物理刘海,会用一块虚拟岛"
+        switch settings.notchLyricsMode {
+        case .off:
+            return "\(notchState)。开启后歌词会挂在菜单栏下沿、水平居中于刘海。"
+        case .peek:
+            return "\(notchState)。切歌时出现约 3.5 秒;鼠标移到刘海或歌词条上会保持展开。"
+        case .always:
+            return "\(notchState)。歌词常驻在刘海正下方 —— 占的是菜单栏下面那一条,不动菜单栏本身。"
         }
     }
 
