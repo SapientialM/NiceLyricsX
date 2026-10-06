@@ -14,6 +14,33 @@
 import Foundation
 import os
 
+// MARK: - 播放控制命令
+
+/// 播放控制命令。
+///
+/// 为什么单独抽一个 enum 而不是给协议加一堆 `play()` / `pause()`:
+/// 命令可以整体透传(组合播放器 → 具体播放器)、可以打日志、可以单测映射,
+/// 而且以后接私有 MediaRemote 时,`MRMediaRemoteSendCommand` 本身就是
+/// "一个整数命令"的形态,映射起来更直接。
+public enum PlaybackCommand: Sendable, Equatable, CaseIterable {
+    case play
+    case pause
+    /// 播放 / 暂停互相切换。
+    case togglePlayPause
+    /// 下一首。
+    case next
+    /// 上一首。
+    case previous
+    case stop
+    /// 跳转到指定播放位置(秒)。
+    case seek(to: TimeInterval)
+
+    /// 不含关联值的命令,用于单测遍历。
+    public static var allCases: [PlaybackCommand] {
+        [.play, .pause, .togglePlayPause, .next, .previous, .stop]
+    }
+}
+
 /// 播放器协议。任何能读取 macOS 音频播放器状态的实现都遵守此协议。
 public protocol MusicPlayerProtocol: AnyObject, Sendable {
 
@@ -38,6 +65,18 @@ public protocol MusicPlayerProtocol: AnyObject, Sendable {
 
     /// 停止监听并释放资源。
     func stop()
+
+    /// 执行播放控制命令(切歌 / 播放暂停 / 跳转)。
+    ///
+    /// 默认实现是 **no-op** —— 只读的播放器(或测试替身)不需要关心控制,
+    /// 加了默认实现可以避免每加一个命令就打断所有实现方。
+    func perform(_ command: PlaybackCommand) async
+}
+
+public extension MusicPlayerProtocol {
+    func perform(_ command: PlaybackCommand) async {
+        // 默认不支持控制,静默忽略
+    }
 }
 
 // MARK: - 组合播放器
@@ -139,6 +178,14 @@ public final class CompositeMusicPlayer: MusicPlayerProtocol, @unchecked Sendabl
             return s
         }
         for cont in subs.values { cont.finish() }
+    }
+
+    /// 把控制命令转给当前选中的播放器。
+    public func perform(_ command: PlaybackCommand) async {
+        await reelectDesignated()
+        let designated = stateLock.withLock { $0.designated }
+        guard let designated else { return }
+        await designated.perform(command)
     }
 
     // MARK: - 内部

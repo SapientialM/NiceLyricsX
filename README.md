@@ -63,8 +63,9 @@ NiceLyricsX 不是一个独立播放器 —— 它住在你的菜单栏,听 Appl
 | 你想做的事 | 在哪里点 |
 | --- | --- |
 | 看当前这行歌词 | 菜单栏图标 → 弹出的面板里就能看到 |
+| **切歌 / 暂停 / 跳转** | 面板里的 **⏮ ⏯ ⏭**;**拖进度条**可以跳到任意位置 |
 | 把歌词投到桌面 | 弹出的面板里把 **桌面歌词** 打开 |
-| 想让歌词从刘海里冒出来 | 面板 **刘海歌词** 选 **切歌时出现**(换歌时冒头 3.5 秒)或 **常驻**;鼠标移到刘海也能手动展开 |
+| 想让歌词从刘海里冒出来 | 面板 **刘海歌词** 选 **切歌时出现**(换歌时冒头 3.5 秒)或 **常驻**;**鼠标移到刘海会展开成控制面板**,移开自动收回 |
 | 歌词比唱快了/慢了 | 弹出的面板里按 **±0.1s** 或 **±1s** 微调,也可以直接拖偏移滑杆 |
 | 调整完想让所有歌曲都按这个偏移来 | 偏移是全局的,改一次到处生效,自动保存 |
 | 桌面歌词挡住了别的东西 | 弹出的面板里把 **鼠标穿透** 打开 |
@@ -86,9 +87,12 @@ NiceLyricsX 不是一个独立播放器 —— 它住在你的菜单栏,听 Appl
 ## 特性
 
 - **菜单栏常驻**:没有 Dock 图标,不出现在 ⌘+Tab,安静地待着
+- **切歌控制**:面板 / 刘海面板里都能 ⏮ ⏯ ⏭,进度条可拖动跳转;控制走 AppleScript,
+  且**按调用顺序串行执行**(不会出现"下一首"和"跳转"互相插队)
 - **菜单栏歌词**(可选):打开后状态栏图标旁边直接跟当前这一行
-- **刘海歌词**:MacBook 那块黑刘海也能当歌词屏 —— 可以在换歌时从刘海下方冒出来,
-  也可以常驻;鼠标移到刘海或歌词条上会保持展开。用的是公开 API,不碰私有 framework
+- **刘海歌词 / 刘海面板**:MacBook 那块黑刘海也能当歌词屏 —— 可以在换歌时从刘海下方
+  冒出来,也可以常驻;**鼠标移到刘海会展开成控制面板**(封面 + 大字歌词 + 进度 + 切歌),
+  移开自动收回。用的是公开 API,不碰私有 framework,也不会抢键盘焦点
 - **双数据源歌词**:优先 [LRCLIB](https://lrclib.net)(欧美 + 流行中文),搜不到时自动回退到 [网易云音乐](https://music.163.com)(中文 / 抖音 / 翻唱),基本能找到 90% 的歌
 - **翻译**:LRC 内嵌 `【翻译】` 和网易云 `tlyric` 都会合并进来,桌面歌词和面板都能显示
 - **专辑封面**:面板里显示当前曲目封面(走 iTunes Search API 反查,进程内缓存)
@@ -236,7 +240,7 @@ bash scripts/make-dmg.sh
 swift test
 ```
 
-111 个单元测试,覆盖:
+122 个单元测试,覆盖:
 - LRC 解析(标准 / 多时间标签 / 行内翻译 / ID 标签 / Windows 行尾)
 - Lyrics 二分查找 + 偏移 + 翻译合并(含网易云 `tlyric` 对不上的情况)
 - PlaybackState 状态机 + 容差比较
@@ -247,6 +251,10 @@ swift test
 - **刘海几何**:用真实机器样本锁住刘海宽度/高度/菜单栏高度/歌词条位置/悬停热区
 - **AppleScript 编译**:把生产用的那段 AppleScript 直接交给 `osascript -e`,
   编译不过就红 —— 这条是踩过 `tell application <变量>` 报 -2741 之后加的
+- **播放控制**:命令 → 脚本映射、每个脚本都带「Music 没运行就别碰」的保护、
+  负数 seek 夹取、用 `NSAppleScript.compileAndReturnError` 真编译每个控制脚本
+  (**不能**用 `osascript -e` 做这件事 —— 那会真把用户的歌切一遍),
+  以及引擎**按顺序**转发命令
 
 > 有一个 NSScreen 相关用例在没有第二块屏的机器上会 skip,属正常。
 
@@ -260,7 +268,8 @@ NiceLyricsX/
 │   ├── App.swift                            # @main + AppDelegate
 │   ├── MenuBarView.swift                    # 菜单栏 status item + SwiftUI 面板 + 封面加载
 │   ├── DesktopLyricsWindow.swift            # 桌面悬浮歌词(NSPanel + 毛玻璃)
-│   ├── NotchLyricsWindow.swift              # 刘海歌词(菜单栏下沿 + 悬停展开)
+│   ├── NotchLyricsWindow.swift              # 刘海歌词 / 悬停展开的控制面板
+│   ├── PlaybackControls.swift               # 切歌按钮 + 可拖进度条(两处面板共用)
 │   ├── MusicPlayer/
 │   │   ├── PlaybackInfo.swift               # 播放状态数据(起播时间戳)
 │   │   ├── MusicPlayerProtocol.swift        # 播放器协议 + 多源代理
@@ -284,7 +293,7 @@ NiceLyricsX/
 │       ├── Info.plist                       # LSUIElement=true
 │       ├── NiceLyricsX.entitlements         # 必要权限
 │       └── Assets.xcassets
-├── Tests/                                    # 单元测试(111 个)
+├── Tests/                                    # 单元测试(122 个)
 ├── LyricsMenu.xcodeproj
 ├── Package.swift                             # SPM 清单
 ├── CHANGELOG.md

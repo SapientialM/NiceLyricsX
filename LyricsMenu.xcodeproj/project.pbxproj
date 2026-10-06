@@ -29,6 +29,7 @@
 		A100001600000000000000A1 /* HTTPRetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001600000000000000A1 /* HTTPRetry.swift */; };
 		A100001700000000000000A1 /* NotchLyricsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001700000000000000A1 /* NotchLyricsWindow.swift */; };
 		A100001800000000000000A1 /* NotchGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001800000000000000A1 /* NotchGeometry.swift */; };
+		A100001900000000000000A1 /* PlaybackControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100001900000000000000A1 /* PlaybackControls.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -57,6 +58,7 @@
 		B100001600000000000000A1 /* HTTPRetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPRetry.swift; sourceTree = "<group>"; };
 		B100001700000000000000A1 /* NotchLyricsWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchLyricsWindow.swift; sourceTree = "<group>"; };
 		B100001800000000000000A1 /* NotchGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchGeometry.swift; sourceTree = "<group>"; };
+		B100001900000000000000A1 /* PlaybackControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackControls.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -85,6 +87,7 @@
 				B100000200000000000000A1 /* MenuBarView.swift */,
 				B100000300000000000000A1 /* DesktopLyricsWindow.swift */,
 				B100001700000000000000A1 /* NotchLyricsWindow.swift */,
+				B100001900000000000000A1 /* PlaybackControls.swift */,
 				D000000400000000000000A1 /* MusicPlayer */,
 				D000000500000000000000A1 /* LyricsService */,
 				D000000600000000000000A1 /* Utils */,
@@ -222,6 +225,7 @@
 				A100000200000000000000A1 /* MenuBarView.swift in Sources */,
 				A100000300000000000000A1 /* DesktopLyricsWindow.swift in Sources */,
 				A100001700000000000000A1 /* NotchLyricsWindow.swift in Sources */,
+				A100001900000000000000A1 /* PlaybackControls.swift in Sources */,
 				A100000400000000000000A1 /* PlaybackInfo.swift in Sources */,
 				A100000500000000000000A1 /* MusicPlayerProtocol.swift in Sources */,
 				A100000600000000000000A1 /* AppleMusicPlayer.swift in Sources */,

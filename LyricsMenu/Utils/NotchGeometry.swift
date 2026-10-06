@@ -128,9 +128,12 @@ public struct NotchGeometry: Equatable, Sendable {
         return min(ideal, screenFrame.width - 120)
     }
 
-    /// 悬停热区:刘海本体 + 歌词条,再往外扩一圈容错。
-    public func hoverRegion(barWidth: CGFloat, barHeight: CGFloat, padding: CGFloat = 6) -> CGRect {
-        notchRect.union(barFrame(width: barWidth, height: barHeight))
+    /// 悬停热区:刘海本体 + 当前内容区(细条或展开面板),再往外扩一圈容错。
+    ///
+    /// 注意这里要传**当前**的高度:展开成面板后热区必须跟着变高,否则鼠标
+    /// 一往面板里移动就会被判定成"离开了",面板立刻收回去 —— 根本点不到按钮。
+    public func hoverRegion(width: CGFloat, height: CGFloat, padding: CGFloat = 6) -> CGRect {
+        notchRect.union(barFrame(width: width, height: height))
             .insetBy(dx: -padding, dy: -padding)
     }
 

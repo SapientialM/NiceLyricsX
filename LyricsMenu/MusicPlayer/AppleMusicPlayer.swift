@@ -200,6 +200,60 @@ public final class AppleMusicPlayer: MusicPlayerProtocol, @unchecked Sendable {
         }
     }
 
+    // MARK: - 播放控制
+
+    public func perform(_ command: PlaybackCommand) async {
+        let script = Self.appleScript(for: command)
+        await runOnScriptQueue { _ = self.runAppleScript(script: script) }
+
+        // 给 Music 一点时间把命令落到状态上再回读。
+        // 不能立刻读 —— 切歌是异步的,立刻读到的多半还是上一首。
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            guard let self, !Task.isCancelled else { return }
+            self.refresh()
+        }
+    }
+
+    /// 播放控制命令的 AppleScript 前置检查。
+    ///
+    /// 必须先确认 Music 在跑:不加这个判断,`tell application "Music" to <命令>`
+    /// 会把**没打开的 Music 直接拉起来** —— 用户只是点了个"下一首",
+    /// 结果 Music 自己启动了,很唐突。
+    static let commandPrelude = """
+    tell application "System Events"
+        set musicRunning to exists (processes whose bundle identifier is "com.apple.Music")
+    end tell
+    if musicRunning is false then return ""
+    """
+
+    /// 把一个 `PlaybackCommand` 映射成 AppleScript。
+    ///
+    /// 用到的命令都在 Music 的 sdef 里(`play` / `pause` / `playpause` /
+    /// `next track` / `previous track` / `stop`,`player position` 是可写 real)。
+    /// 有单测把每一个都交给 `osascript -e` 编译,编译不过就红。
+    static func appleScript(for command: PlaybackCommand) -> String {
+        let action: String
+        switch command {
+        case .play:
+            action = "play"
+        case .pause:
+            action = "pause"
+        case .togglePlayPause:
+            action = "playpause"
+        case .next:
+            action = "next track"
+        case .previous:
+            action = "previous track"
+        case .stop:
+            action = "stop"
+        case .seek(let time):
+            // 负数会让 AppleScript 报错,夹到 0
+            action = "set player position to \(String(format: "%.3f", max(0, time)))"
+        }
+        return commandPrelude + "\ntell application \"Music\" to \(action)\nreturn \"ok\""
+    }
+
     private func broadcast(_ info: PlaybackInfo) {
         let (active, shouldYield) = stateLock.withLock { state -> ([AsyncStream<PlaybackInfo>.Continuation], Bool) in
             let last = state.lastYield

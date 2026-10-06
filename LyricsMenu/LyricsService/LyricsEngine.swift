@@ -63,11 +63,18 @@ public final class LyricsEngine: ObservableObject {
 
     private var currentTrackKey: String?
     private var lastPlaybackTime: TimeInterval = 0
-    private var lastPlaybackInfo: PlaybackInfo = .empty
 
+    /// 最近一次播放快照。
+    ///
+    /// **刻意不是 `@Published`** —— 它每 2 秒就被轮询刷新一次,如果发布出去,
+    /// 整个 UI 会跟着每 2 秒空重绘一遍。需要高频显示进度的视图(进度条)
+    /// 用 `TimelineView` 自己驱动重绘,直接读这里就行。
+    public private(set) var lastPlaybackInfo: PlaybackInfo = .empty
     private var playerObserverTask: Task<Void, Never>?
     private var loadTask: Task<Void, Never>?
     private var nextLineWakeupTask: Task<Void, Never>?
+    /// 播放控制命令的串行链,保证按调用顺序执行(见 `perform(_:)`)。
+    private var controlTask: Task<Void, Never>?
 
     public init(player: MusicPlayerProtocol, provider: LyricsProvider = LyricsProvider()) {
         self.player = player
@@ -117,6 +124,39 @@ public final class LyricsEngine: ObservableObject {
     /// 手动设置偏移(供 UI 滑块 / 菜单按钮调用)。
     public func adjustTimeDelay(by delta: TimeInterval) {
         timeDelay = max(-10, min(10, timeDelay + delta))
+    }
+
+    // MARK: - 播放控制
+
+    /// 执行播放控制命令(切歌 / 播放暂停 / 跳转)。
+    /// 具体支持哪些取决于播放器;不支持时静默忽略。
+    ///
+    /// **命令必须按调用顺序执行** —— 最直白的写法 `Task { await player.perform(c) }`
+    /// 每次起一个独立 Task,调度顺序没有任何保证:用户"下一首"紧接着"跳转到 30 秒",
+    /// 有可能 seek 先落到**上一首**身上。所以这里把命令串成链:每条命令先 await
+    /// 上一条做完。(这个 bug 是单测里断言命令顺序才暴露出来的。)
+    public func perform(_ command: PlaybackCommand) {
+        let previous = controlTask
+        controlTask = Task { [player] in
+            await previous?.value
+            await player.perform(command)
+        }
+    }
+
+    /// 当前播放位置(秒)。基于墙钟实时算,不需要等下一次轮询 ——
+    /// 进度条那种高频 UI 读这个。
+    public var playbackPosition: TimeInterval {
+        lastPlaybackInfo.playbackTime
+    }
+
+    /// 当前曲目总时长(秒)。未知时为 0。
+    public var playbackDuration: TimeInterval {
+        lastPlaybackInfo.duration
+    }
+
+    /// 能否控制播放(至少要有一首在放)。
+    public var canControlPlayback: Bool {
+        !lastPlaybackInfo.title.isEmpty
     }
 
     /// 清空当前歌词(暂停时显示"等待播放"等)。

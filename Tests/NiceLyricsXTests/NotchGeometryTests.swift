@@ -128,7 +128,7 @@ final class NotchGeometryTests: XCTestCase {
     func testHoverRegionCoversNotchAndBar() {
         let geometry = makeNotched()
         let barWidth = geometry.barWidth()
-        let region = geometry.hoverRegion(barWidth: barWidth, barHeight: 52)
+        let region = geometry.hoverRegion(width: barWidth, height: 52)
 
         XCTAssertTrue(region.contains(CGPoint(x: geometry.notchRect.midX, y: geometry.notchRect.midY)),
                       "刘海正中间要在热区里")
@@ -139,7 +139,7 @@ final class NotchGeometryTests: XCTestCase {
 
     func testHoverRegionExcludesFarAwayPoints() {
         let geometry = makeNotched()
-        let region = geometry.hoverRegion(barWidth: geometry.barWidth(), barHeight: 52)
+        let region = geometry.hoverRegion(width: geometry.barWidth(), height: 52)
         XCTAssertFalse(region.contains(CGPoint(x: 10, y: 10)), "屏幕左下角不该命中")
         XCTAssertFalse(region.contains(CGPoint(x: geometry.screenFrame.midX, y: 400)), "屏幕中部不该命中")
     }

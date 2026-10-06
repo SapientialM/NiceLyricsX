@@ -207,6 +207,7 @@ struct MenuBarContent: View {
                     }
                     trackCard
                     lyricsCard
+                    transportSection
                     offsetSection
                     appearanceSection
                     notchSection
@@ -394,6 +395,16 @@ struct MenuBarContent: View {
         case .failed(let msg): return msg
         default: return "打开 Apple Music 播放歌曲后会自动加载歌词"
         }
+    }
+
+    // MARK: 播放控制
+
+    /// 切歌 + 进度跳转。进度条用 `TimelineView` 自己驱动重绘 ——
+    /// `LyricsEngine.playbackPosition` 基于墙钟实时算,不用等 2 秒轮询。
+    private var transportSection: some View {
+        PlaybackControlsRow(lyricsEngine: lyricsEngine)
+            .disabled(lyricsEngine.currentTrack.title.isEmpty)
+            .opacity(lyricsEngine.currentTrack.title.isEmpty ? 0.5 : 1)
     }
 
     // MARK: 偏移
